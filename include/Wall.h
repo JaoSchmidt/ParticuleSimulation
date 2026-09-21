@@ -6,5 +6,5 @@
 namespace Wall
 {
 reg::Entity create(pain::Scene &scene, const glm::vec2 &pos,
-                   const glm::vec2 &size);
+                   const glm::vec2 &size, pain::Material &m);
 };

@@ -44,7 +44,6 @@ pain::Application *pain::createApplication()
 
   // (Optional) Creating the ECS UI scene
   UIScene &uiScene = app->createUIScene();
-  //
   // (Optional) A small native script that works as our game engine editor
   painless::Editor &editor = painless::Editor::create(uiScene, *app);
 

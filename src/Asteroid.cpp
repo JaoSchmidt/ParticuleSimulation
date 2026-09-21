@@ -7,10 +7,12 @@ reg::Entity Asteroid::create(pain::Scene &scene, pain::Material &m,
 {
   // assuming size of quad sprite = diameter
   reg::Entity entity = scene.createEntity();
-  scene.createComponents(entity, pain::Transform2dComponent{pos}, //
-                         pain::Movement2dComponent{vel},          //
-                         pain::RotationComponent{},               //
-                         pain::MaterialComponent{m},              //
-                         pain::SAPCollider::createCircle(radius));
+  scene.createComponents(
+      entity, pain::Transform2dComponent{pos},                     //
+      pain::Movement2dComponent{vel},                              //
+      pain::RotationComponent{},                                   //
+      pain::SpriteComponent::create({.shape = pain::QuadShape{}}), //
+      pain::MaterialComponent{m},                                  //
+      pain::SAPCollider::createCircle(radius));
   return entity;
 }

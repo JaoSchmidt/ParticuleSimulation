@@ -8,8 +8,7 @@ class MainScript : public pain::WorldObject
 public:
   static MainScript &createScriptScene(pain::Scene &scene,
                                        pain::Application *app);
-  MainScript(reg::Entity entity, pain::Scene &scene,
-             std::vector<reg::Entity> &&stars, reg::Entity orthocamera,
+  MainScript(reg::Entity entity, pain::Scene &scene, reg::Entity orthocamera,
              std::vector<reg::Entity> &&asteroid,
              std::vector<reg::Entity> &&walls, reg::Entity mp);
 
@@ -17,7 +16,6 @@ public:
   std::shared_ptr<pain::Shader> m_texture_shader;
   reg::Entity m_mousePointer;
   reg::Entity m_orthoCamera;
-  std::vector<reg::Entity> m_stars;
   std::vector<reg::Entity> m_asteroids;
   std::vector<reg::Entity> m_walls;
   // Player m_player;
