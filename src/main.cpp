@@ -1,7 +1,8 @@
 #include <pain.h>
 #include <painless.h>
 
-#include "ParticleSimulation.h"
+#include "SimulationModeSwitch.h"
+#include "aliasesSystems.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 
@@ -14,33 +15,27 @@ pain::Application *pain::createApplication()
   // Retrieve the app context defined inside "resources/InternalConfig.ini"
   InternalConfig internalIni;
   internalIni.readAndUpdate(ini.assetsPath.value);
-
+  // TODO: create a function to translate init directly to AppInit
   // Create the application + OpenGL + Event contexts
-  Application *app = Application::createApplication(         //
-      {.title = internalIni.title.get().c_str(),             //
-       .defaultWidth = ini.defaultWidth.get(),               //
-       .defaultHeight = ini.defaultHeight.get()},            //
+  Application *app = Application::createApplication( //
+      {
+          .title = internalIni.title.get().c_str(),     //
+          .defaultWidth = ini.defaultWidth.get(),       //
+          .defaultHeight = ini.defaultHeight.get(),     //
+          .defaultZoom2d = internalIni.zoomLevel.get(), //
+          .fullWindow = ini.fullwindow.get(),           //
+          .fullScreen = ini.fullscreen.get(),           //
+          .gridCellSize = internalIni.gridSize.get(),
+      },
       {.swapChainTarget = internalIni.swapChainTarget.get()} //
   );
 
-  // Create the ECS World Scene
-  pain::Scene &scene = app->getWorldScene();
-  scene.createComponents(scene.getEntity(), cmp::Script{});
+  // Create the ECS World Scene and its systems
+  pain::Scene &scene = Sys::declareSystems(app);
 
-  // Individually add each system
-  scene.addSystem<Systems::SweepAndPruneSys>();
-  scene.addSystem<Systems::Render2d>();
-  scene.addSystem<Systems::NativeScript>();
-  scene.addSystem<Systems::LuaScript>();
-  scene.addSystem<Systems::Kinematics>();
-  scene.addSystem<Systems::LuaSchedulerSys>();
-
-  // (Optional) Defining a small native script (MainScript) for the world scene
-  // that will be executed on. Must have added System::NativeScript
-  MainScript::createScriptScene( //
-      scene,                     //
-      app                        //
-  );
+  // The switcher owns the shared assets, starts the default flavour and takes
+  // over the "Simulation" panel, from where the other one can be selected.
+  SimulationModeSwitch::create(scene, app, SimulationModeSwitch::defaultMode);
 
   // (Optional) Creating the ECS UI scene
   UIScene &uiScene = app->createUIScene();
