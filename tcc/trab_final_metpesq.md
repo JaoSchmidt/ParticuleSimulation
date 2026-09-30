@@ -8,48 +8,57 @@ Advisor: Geraldo Xexeo
 
 ## Abstract
 
-This work explores the integration of Entity Component System (ECS) and scripting into game engine development, with a focus on their roles in enhancing performance, maintainability, and modularity. ECS provides a data-driven approach to managing game entities and behaviors, addressing challenges related to memory locality, polymorphism overhead, and parallelism. Scripting facilitates dynamic interaction with the engine, allowing rapid iteration and greater accessibility when the ECS is unnecessary. This study analyzes their impact on core functionalities like graphics rendering and physics simulation. Key contributions include performance benchmarks, architectural insights, and practical guidelines for integrating ECS and scripting into game engines, with implications extending to simulation software and other performance-critical applications. This research aims to establish a robust foundation for future developments in modular and efficient game engine design.
+This work explores the integration of Entity Component System (ECS) and scripting into game engine development, with a focus on their roles in enhancing performance, maintainability, modularity and coding complexity. ECS provides a data-driven approach to managing game entities and behaviors, addressing challenges related to memory locality, polymorphism overhead, and parallelism. Scripting facilitates both dynamic and static interaction with the engine, through Lua and C++ respectivelly, allowing  greater accessibility when the ECS is unnecessary. This study analyzes ECS impact on core functionalities like graphics rendering and physics simulation. Key contributions include performance benchmarks, architectural insights, and practical guidelines for integrating ECS and scripting into game engines, with implications extending to simulation software and other performance-critical applications.
 
 ## 1. Introduction Scheme:
 
 <!-- Problem presentation/Context -->
 
-The creation of game engines is a complex task that involves integrating multiple systems, including graphics, physics, input handling, sound, just to name a few. One of the central architectural designs of most modern game engines is the Entity Component System (ECS), which provides a flexible, data-driven approach to manage game entities and behaviors. Alongside ECS, scripting plays a pivotal role in enabling dynamic interaction with the engine with interpreted languages, such as Python, Lua, among others. Both ECS and scripting allow for modular, maintainable, and scalable engine design, which is essential for handling the complexity of modern games.
+The creation of game engines is a complex task that involves integrating multiple systems, including graphics, physics, input handling, sound, events, camera, just to name a few. One of the main architectural design choice of most modern game engines is the presence of ECS, that isolates each of those tasks into "Systems". Those have access to all data from the game. 
+
+ECS is a data-driven architecture, which forbades object methods and instead strips its data into engine components whenever possible. Alongside ECS, scripting plays a role when those components can't be separated, and also enable dynamic interaction with interpreted languages, such as Python, Lua, among others. Both ECS and scripting allow for complex and simple game design choices respectivelly, which is essential for handling modern games.
 
 <!-- Objective -->
 
-This TCC focuses on how these systems are built and their relationship with other engine components, mainly graphics and physics. The goal is to design and implement these systems within a game engine, providing a deep understanding of their impact on performance, maintainability, and extensibility. Additionally, this work will explore how ECS and scripting influence other core systems, such as graphics rendering and physics simulations, demonstrating their importance in the overall architecture of game engines.
+This TCC focuses on how these systems are built and their relationship with other engine components, mainly graphics and physics. The goal is to design and implement these systems within a game engine, providing a comparasion with OOP of their impact on maintainability and then performance. Additionally, this work will explore how ECS and scripting can potentially influence other core systems, demonstrating their importance in the overall architecture of game engines
 
 <!-- Justification -->
 
 The significance of this research lies in the growing need for modular and efficient game engines. ECS has become a widely adopted pattern in the industry due to its ability to handle large-scale projects by decoupling data from logic, id est, the entity-component from systems.
 
-Scripting, meanwhile, allows game developers to quickly iterate on gameplay without recompiling the entire codebase; it also makes it easier to apply further modifications by non-core developers. Understanding how these systems interact with graphics and physics can provide valuable insights for improving engine performance and flexibility. This knowledge is not only applicable to game development but can also be relevant for simulation software and other fields where rendering and physics are crucial.
+Scripting, meanwhile, allows game developers to still use OOP when necessary and, allow to quickly change gameplay without touching the engine code; With added bonus if the scripting languages is interpreted since it won't need to compile. In turn, also makes it easier to apply modifications by non-core developers. Understanding how scripting interact with the ECS Api can provide valuable insights for improving engine performance because they can decide when to pass script code into the engine code.
+
+Meanwhile, even when not using such architecture, it can be helpful to know why. For example, Godot programers decided that, the extra maintainability created more disadvantages than the extra perfomance was worth it <cite>\[[7]\][7]</cite>. Therefore, it is a decision that must be made knowing its trade-offs
 
 <!-- Objective 2 -->
 
 First, I will talk about references and other essential tools used when building the ECS for a game engine or other big c-based projects in general.
+
 Then I will research and define the core architecture of ECS, identifying how entities, components, and systems will interact within the engine. This includes designing the data structures and memory layout.
-Next, I will implement the ECS and the registry, the latter will be useful to manipulate the complex data structures demonstrating how they are important to achieve the rendering and physics simulations.
+
+Follwoing that, I will briefly talk about two main sub-architectures
+
+Next, I will show an implementation of ECS, the Registry and the Scene, the latter will act as a sort of API to manipulate complex data structures demonstrating.
+
 Finally, I will conduct performance benchmarks and tests to evaluate the efficiency and scalability of the ECS in handling big scenes, showing some examples of its interaction with other engine systems.
 
-By the end of this project, I expect to have contributed a functional ECS and scripting system within Le Pain Engine which is a game engine I'm building as a hobby, with documented analysis of how these systems improve or challenge existing architectures in areas such as performance, scalability, and ease of use. This TCC will serve as a practical guide for developers looking to integrate ECS and scripting into their own projects, offering insights into the design choices, trade-offs, and challenges associated with these core systems.
+By the end of this project, I expect to have contributed a functional ECS and scripting system within Pain-Engine, which is a game engine I'm building as a hobby, documenting how these systems either improve or challenge existing architectures developers job. This TCC will serve as a practical guide for developers looking to integrate ECS and scripting into their own projects, offering insights into the design choices, trade-offs, and challenges associated with these core desicions.
 
 ## 2. Important Theoretical frameworks
 
-Computer Systems: A Programmer’s Perspective by Randal Bryant is sometimes called "The Computer Science Book" by some of my colleagues. This reference is key for understanding the lower-level aspects of computer systems, which are critical when building high-performance and clean software. It covers topics like memory management, CPU architecture, and efficient code execution, all of which are relevant to optimizing scripting systems, ECS and their data structures.<cite>\[[1]\][1]</cite>
+Computer Systems: A Programmer’s Perspective by Randal Bryant is sometimes called "The Computer Science Book" by some of my colleagues. This reference is key for understanding the lower-level assembly aspects of coding, which are critical when building high-performance and clean software. It covers topics like memory management, CPU architecture, instructions, unexpected behaviors and efficient code execution, all of which are relevant to optimizing queries inside ECS's systems, and their data structures.<cite>\[[1]\][1]</cite>
 
-The detailed exploration of how systems interact with hardware will help me make informed decisions when managing resources in Pain Engine, ensuring that it remains both efficient and scalable. This book will be especially helpful in addressing challenges related to performance bottlenecks, as it provides insights into how software can be optimized at a deeper level.
+The detailed exploration of how instructions are decided by the compiler will help me make informed decisions when managing resources in the engine, ensuring that it remains both efficient and scalable. This book was be especially helpful in addressing challenges related to safety problems, as it provides insights into what problems.
 
 Another aspect of this book is that it covers some unintuitive and invisible behaviors from the c programming language that can lead to bugs, even for advanced programmers. By doing so, it justifies some of the design choices that I'm using in my game engine.
 
-The EnTT source code by skypjack. EnTT is a well-established and highly efficient C++ library for implementing an Entity Component System (ECS). I chose to reference EnTT because it provides a robust and scalable ECS architecture that has been widely adopted in both hobbyist and professional game developments, like Minecraft, Diablo II, Call of Duty Vanguard, etc. Studying EnTT's source code will expose efficient ways to create functions to handle entities and components, especially in terms of memory
-management and performance optimizations.<cite>\[[2]\][2]</cite>
+The EnTT source code by skypjack. EnTT is a well-established and highly efficient C++ library for implementing a Sparse-Set Entity Component System (ECS). I chose to reference EnTT because it provides a already exhaustively tested ECS architecture that has been widely adopted in both hobbyist and professional game developments, like Minecraft, Crimson Rush, ArcGIS Runtime SDKs, etc<cite>\[[2]\][2]</cite>. I also choose because of his wonderful blog called "ECS back and forth" which goes in detail on what problems engines are usually trying to solve<cite>\[[8]\][8]</cite>. Studying EnTT's source code will expose some intersting ways on how to create functions to handle entities and components.
 
-Its use of modern C++ techniques, like template meta-programming, will serve as a valuable guide for implementing similar strategies in my own Registry system. The library is also made with the intent of being very simple to use and to modify if necessary, which is something Game Engine Architecture recommends when designing data-driven architectures.
+Its use of modern C++ techniques, like template meta-programming, will serve as a valuable guide for implementing similar strategies in my own Registry system. The library is also made with the intent of being very simple to use and to modify if necessary.
 
-ECST is an experimental multithreaded compile-time ECS library. It was developed as a Computer Science graduation project. I chose to reference ECST for its interesting approach to compile-time and multithreaded designs. Its focus on maximizing performance through parallel execution will be crucial for understanding how to handle large numbers of entities and components in complex game worlds. The library was made using c++14, but by studying ECST’s source code, one could gain knowledge to design an ECS that leverages modern c++20 architectures.
-<cite>\[[3]\][3]</cite>
+ECST is an experimental multithreaded compile-time ECS library. It was developed as a Computer Science graduation project. I chose to reference ECST for its interesting approach to compile-time and multithreaded designs. The library was made using c++14, but by studying ECST’s source code, one could gain knowledge to design an ECS that leverages modern c++20 architectures. <cite>\[[3]\][3]</cite
+
+Lastly and perhaps the closest to the present article is Sander Mertens Flecs ECS library, and also exhaustively tested on numerous projects like Tempest Rising, Territory Control 2, Resistance is Brutal, etc <cite>\[[9]\][9]</cite>. Which is also complemented by the amazing blog series "Building and ECS". There, he disclosures what designs and principles were choosen during his making of Flecs<cite>\[[10]\][10]</cite>. Especially the main "Archetype" architecture, which differs from EnTT Sparse-Set.
 
 <!-- Description:
 Description of the problem (done)
@@ -64,98 +73,144 @@ How does Scripting work?
 
 ## 3.1 Description of the problem:
 
-There is no way around this subject other than to describe exactly what is being built here. As with any work, its purpose is to solve a problem, or at least to solve it in a better way than the other solutions.
+There is no way around this subject other than to describe exactly what is being built here. As with any work, its purpose is to solve problems, or at least to solve it in a marginally better way than other existing solutions. To be more precise, there are 2 problems an ECS intends to solve for game engines: 
 
-Suppose that a developer is creating his/her game, and it needs to update millions of objects. Some of them are quite different from each other, so you have different structs of data.
+On the first problem, suppose that a developer is creating his/her game, and it needs to update millions of objects. Some of them are quite different from each other, so you have different structs of data.
 
 For example, it might have objects like lights, meshes, audios, sprites, transforms, etc.
 
 <!-- NOTE: this is pseudocode, "c" is here because i like highlight-->
 
-```c
-class Mesh extends Entity
-class Light extends Entity
-class Audio extends Entity
-class Sprite extends Entity
-class Transform extends Entity
+```
+CLASS Mesh EXTENDS Node
+CLASS Light EXTENDS Node
+CLASS Audio EXTENDS Node
+CLASS Sprite EXTENDS Node
+CLASS Transform EXTENDS Node
 ```
 
 Most probably, the object will be a combination of those above:
 
-```c
-class MeshWithAudio extends Entity {
-    Mesh *m_mesh
-    Autio *m_audio
-}
-class LightWithAudio extends Entity {
-    Light *m_mesh
-    Autio *m_audio
-}
-class LightMeshWithAudio extends Entity {
-    Light *m_light
-    Mesh *m_mesh
-    Autio *m_audio
-}
-class SpriteWithTransform extends Entity {
-    Sprite *m_sprite
-    Transform *m_transform
-}
+```
+CLASS MeshWithAudio EXTENDS Node 
+    Mesh mesh
+    Autio audio
+
+CLASS LightWithAudio EXTENDS Node 
+    Light mesh
+    Autio audio
+
+CLASS LightMeshWithAudio EXTENDS Node 
+    Light light
+    Mesh mesh
+    Autio audio
+
+CLASS CollisionWithMesh EXTENDS Node 
+    Collider collider
+    Mesh mesh
+// etc
 ```
 
-Or, if you are found of inheritance, you could also use it:
+Or, if you language support multiple inheritance, you can do the following:
 
-```c
-class MeshWithAudio extends Mesh, Audio
-class LightWithAudio extends Light, Audio
-class LightMeshWithAudio extends Light, Mesh, Audio
-class SpriteWithTransform extends Sprite, Transform
+```
+CLASS MeshWithAudio EXTENDS Mesh, Audio
+CLASS LightWithAudio EXTENDS Light, Audio
+CLASS LightMeshWithAudio EXTENDS Light, Mesh, Audio
+CLASS CollisionWithMesh EXTENDS Collider, Mesh
+```
+Either way, using those primary objects, you would need to make it available for the developer, so it can be used on actual objects, e.g.:
+
+```
+CLASS Enemy EXTENDS ColliderWithhMeshWithAudio
+CLASS Player EXTENDS ColliderWithhMeshWithAudio
+CLASS Firefly EXTENDS LightWithAudio
+CLASS Lamp EXTENDS LightMeshWithAudio
+CLASS Wall EXTENDS CollisionWithMesh
 ```
 
-Either way, using those primary objects, you will then be able to create more concrete entities.
+Therefore, you would need to define $2^N$ different classes, which is not feasable for higher values of $N$. Let's explore how Godot, which is an exclusively OOP engine, solve this problem inside their definiton of `Node` at `scene/main/node.h` <cite>\[[11]\][11]</cite>
 
-```c
-class Enemy extends MeshWithAudio
-class Player extends MeshWithAudio
-class Firefly extends LightWithAudio
-class Lamp extends LightMeshWithAudio
-class UID extends SpriteWithTransform
-```
 
 <!-- 1. polymorphism overhead, 2. memory locality, 3. parallelizability-->
+```cpp
+class Node : public Object {
+    struct Data {
+        Node *parent = nullptr;
+        Node *owner = nullptr;
+        HashMap<StringName, Node *> children;
+    };
+    Data data;
+};
+```
+
+Now, the problem is solved by using composition, without using multiple inheritance. From Godot perspective, you can place new components inside its children hashmap, and as long as it is inherited from Node, you will have your object as complex as necessary.
+
+```cpp
+Node enemy = new Node();
+enemy.data.children.insert({"Mesh", new Mesh{}}, {"Audio", new Audio});
+```
+Now, if we were to add an interpreted language, we can expose a `insert_component` function to add new components to objects inside the engine, without needing to recompile.
 
 With that ready, the developer also needs to iterate between all those objects and update their data. Each object will have at least some sort of action in the game, for example, they need to be rendered, collide, process events, move, change states, etc.
 
-Those direct approaches are prone to create two specific code styles:
+Those direct approaches are prone to create two specific code styles to fill those task: a vertical style that is object-centric (OC) and a more horizontal style that is system-centric (SC).
 
-```c
-For each Enemy
-    call updatePhysics
-    call checkCollisions
-    call move
-    call render
+In the vertical style, each object is called and sequentially updated to perform specific tasks:
+
+```
+FOR EACH enemy IN Enemies
+    CALL enemy.move
+    CALL enemy.checkCollisions
+    CALL enemy.render
+    CALL enemy.searchPlayer
     // etc
 
-For each Player
-    call updatePhysics
-    call checkCollisions
-    call move
-    call render
+FOR EACH player IN Players
+    CALL player.move
+    CALL player.checkCollisions
+    CALL player.render
+    CALL player.hideFromEnemy
     // etc
 
-For each Firefly
-    call move
-    call emmit
+FOR EACH firefly IN Fireflies
+    CALL firefly.move
+    CALL firefly.emmit
     // etc
 ```
 
-However, this specific style, which is common in OOP, has three performance issues.
+A little problem emerges: if this example, enemy executes first meaning it can move and collide with the player first. But, in another simulation, if player executes first, then it can run before getting hit.
+
+Notice however, that many of those functions are performing the same task for many different objects. In OOP we can use to our advantage by implementating interfaces:
+
+```
+INTERFACE i_move IMPLEMENTS move
+INTERFACE i_render IMPLEMENTS render
+INTERFACE i_collidable IMPLEMENTS checkCollisions
+
+CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
+CLASS Player IMPLEMENTS i_move, i_collidable, i_render
+CLASS Firefly IMPLEMENTS i_move
+
+// ...later
+FOR EACH movable IN movables
+    CALL (i_move) movable.move
+FOR EACH renderable IN renderables
+    CALL (i_render) renderable.render
+FOR EACH collider IN collidable
+    CALL (i_collidable) collider.checkCollisions
+```
+
+Why is this necessary? Mainly because it can happen that one operation conceptually needs to happen for all objects before another operation begins. Now both player and enemy need to make their moves before checking their collision, solving that little problem.
+
+This is a system centric loop but not an ECS yet. This specific style, which is common in OOP, still has 3 performance issues.
 
 <!-- 1. polymorphism overhead -->
 
-The first one is polymorphism overhead. Whenever you call a method of a base class or using interfaces, the call itself involves one indirect step before the actual code is reached, this is usually called Dynamic Dispatch Overhead and its cost usually depends on implementation. $C++$ usually does this with the use of vTables, which are very straightforward indexed tables, which links virtual functions to real functions.
-But what is the overhead? At runtime the program needs to check inside the vTable what is the correct link between the virtual function and the actual function before performing the call. That extra step is what makes the program slow down<cite>\[[6]\][6]</cite>
+The first one is polymorphism overhead. Dynamic polymorphism in typical OOP implementations commonly uses an indirect dispatch mechanism. Why? Because whenever you call a method of a base class or using interfaces, the call itself involves one indirect step before the actual code is reached, and this redirection creates the overhead. Its cost usually depends on implementation, $C++$ usually does this with the use of vTables, which are very straightforward indexed tables, which links virtual functions to real functions.
+But what is the overhead? At runtime the program needs to check inside the vTable what is the correct link between the virtual function and the actual function before performing the call. That extra step is what makes the program slow down<cite>\[[6]\][6]</cite>, but aslo make 
 
-![Figure1](/home/jaoschmidt/Documents/ufrj/metpesq/trabfinal/images/vtable-for-derived2-class.webp)
+![Figure1](images/vtable.png)
 
 *Figure 1: Example of vTable storing the linkage between two derived classes*
 
@@ -218,7 +273,7 @@ I, however, decided to go with the definition used by Unity Engine: Which states
 
 The reason to prefer this definition it's because it is simpler and because it works within Unity.
 
-![Figure2](/home/jaoschmidt/Documents/ufrj/metpesq/trabfinal/images/ECS_arbitrary.png)
+![Figure2](images/ECS_arbitrary.png)
 
 *Figure 2: Arbitrary components from arbitrary entities filled with arbitrary data in a random order*
 
@@ -288,7 +343,7 @@ As a rule of thumb, the code inside each loop is generally very specific, becaus
 This also makes the loop very small compared to per object update. For example, the movement system here will have one line of code, making it easier for the compiler and for us to optimize the code.
 
 
-![figure3](/home/jaoschmidt/Documents/ufrj/metpesq/trabfinal/images/Movement_System.png)
+![figure3](images/Movement_System.png)
 
 *Figure 3: Movement System performs a scalar multiplication and a sum in two vectors*
 
@@ -326,7 +381,7 @@ for each Velocity Component
 ```
 However, the search algorithm is costly.
 
-![Figure4](/home/jaoschmidt/Documents/ufrj/metpesq/trabfinal/temp/temp_03.png)
+![Figure4](images/temp_03.png)
 
 *Figure 4: Example of common components inside the registry, each square is an array*
 
@@ -339,7 +394,7 @@ This iterator will come from a special data structure that exists only for that 
 Those special data structures are the Archetypes. Internally they are just Structure of Arrays (SoA), this ensures a contiguous memory access for all components within the same archetype.
 
 
-![Figure5](/home/jaoschmidt/Documents/ufrj/metpesq/trabfinal/temp/temp_04.png)
+![Figure5](images/temp_04.png)
 
 *Figure 5: Example of common components inside the registry after the Movement System*
 
@@ -347,7 +402,7 @@ What is happening here? The data for a specific System is being glued so that we
 
 With this we don't need to search for the necessary components. However, this also introduces some drawbacks.
 
-![Figure6](/home/jaoschmidt/Documents/ufrj/metpesq/trabfinal/temp/temp_05.png)
+![Figure6](images/temp_05.png)
 
 *Figure 6: All possible combinations of components*
 
@@ -428,8 +483,14 @@ While game engines are never truly “finished,” the goal is to push the bound
 
 [3] V. Romeo, vittorioromeo/ecst. (Oct. 23, 2024). C++. Accessed: Oct. 23, 2024. [Online]. Available: https://github.com/vittorioromeo/ecst
 
-[4] “Learn OpenGL, extensive tutorial resource for learning Modern OpenGL.” Accessed: Oct. 23, 2024. [Online]. Available: https://learnopengl.com/
-
-[5] J. Gregory, Game engine architecture, Third edition. in An A.K. Peters book. Boca Raton London New York: CRC Press, Taylor & Francis Group, 2019.
-
 [6] K. Driesen and U. Hölzle, “The direct cost of virtual function calls in C++,” SIGPLAN Not., vol. 31, no. 10, pp. 306–323, Oct. 1996, doi: 10.1145/236338.236369.
+
+[7] J. Linietsky, “Why isn’t Godot an ECS-based game engine?,” Godot Engine, Feb. 26, 2021. [Online]. Available: https://godotengine.org/article/why-isnt-godot-ecs-based-game-engine/
+
+[8] M. Caini, “ECS back and forth: Part 1 – Introduction,” skypjack on software, Feb. 14, 2019. [Online]. Available: https://skypjack.github.io/2019-02-14-ecs-baf-part-1/
+
+[9] S. Mertens, Flecs: A Fast Entity Component System (ECS) for C & C++. GitHub. [Online]. Available: https://github.com/sandermertens/flecs
+
+[10] S. Mertens, “Building an ECS #1: Where are my Entities and Components,” Medium, Aug. 6, 2022. [Online]. Available: https://ajmmertens.medium.com/building-an-ecs-1-where-are-my-entities-and-components-63d07c7da742
+
+[11] Godot Engine Contributors, “Node class definition (node.h),” Godot Engine, GitHub. [Online]. Available: https://github.com/godotengine/godot/blob/master/scene/main/node.h
