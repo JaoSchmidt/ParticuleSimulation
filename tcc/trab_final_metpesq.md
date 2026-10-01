@@ -126,7 +126,7 @@ Either way, using those primary objects, you would need to make it available for
 ```
 CLASS Enemy EXTENDS ColliderWithhMeshWithAudio
 CLASS Player EXTENDS ColliderWithhMeshWithAudio
-CLASS Firefly EXTENDS LightWithAudio
+CLASS Firefly EXTENDS LightWithAudio 
 CLASS Lamp EXTENDS LightMeshWithAudio
 CLASS Wall EXTENDS CollisionWithMesh
 ```
@@ -205,7 +205,7 @@ FOR EACH collider IN collidable
 
 Why is this necessary? Mainly because it can happen that one operation conceptually needs to happen for all objects before another operation begins. Now both player and enemy need to make their moves before checking their collision, solving that little problem.
 
-This is a system centric loop but not an ECS yet. This specific style, which is common in OOP, still has 3 performance issues.
+This is a SC loop but not an ECS yet. This specific style, which is common in OOP, still has 3 performance issues.
 
 ## 3.2 Description of the problem: 3 problems of OOP flexibility 
 <!-- 1. polymorphism overhead -->
@@ -227,7 +227,7 @@ However, when iterating in OOP, you are looping in the data of the entire object
 
 It is possible to clearly see the cost by doing a simple test. E.g, writing a small loop to sum all elements of a matrix "A":
 
-```
+```pseudocode
 INITIALIZE result TO 0
 INITIALIZE A TO MATRIX(20000,20000)
 
@@ -237,7 +237,7 @@ FOR EACH i from 0 to A.rows - 1:
 ```
 
 When implemented in C, this code will execute in 1.78 seconds for a square matrix A of size $20000$
-```
+```pseudocode
 INITIALIZE result TO 0
 INITIALIZE A TO MATRIX(20000,20000)
 
@@ -283,9 +283,156 @@ Kernel arguments vs	Query/resources
 Synchronization	System vs ordering/dependencies
 -->
 
+## 4.1 ECS as remedy: System
+ 
+The previous OOP SC loop also allows for further flexibility when it comes to completing engine tasks. For example:
+
+```pseudocode
+CLASS Firefly IMPLEMENTS i_move
+  FUNCTION move OVERRIDE
+    // move firefly ...
+
+CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
+  FUNCTION move OVERRIDE
+    // move enemy ...
+```
+
+This is a useful flexibility to have, but it's also probable that the developer will implement some repeated calculation. For example, let's us suppose a very simple firefly would use the following:
+
+```pseudocode
+CLASS Firefly IMPLEMENTS i_move 
+    position = (0,0)
+    velocity = (0,0)
+    timer = 0.0
+    function getRandomNum()
+
+    PUBLIC FUNCTION move(dt) OVERRIDE 
+        timer -= dt
+
+        // Choose random dir
+        IF directionTimer <= 0.0f THEN
+            velocity.x = CALL getRandomNum
+            velocity.y = CALL getRandomNum
+            timer = CALL getRandomNum
+
+        // Apply velocity !
+        position += velocity * dt
+```
+Similarly, a very simple enemy that just follows the player would also need to apply velocity:
+
+```pseudocode
+CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render 
+    position = (0,0)
+    velocity = (0,0)
+    speed = 1
+
+    PUBLIC FUNCTION move(float dt) OVERRIDE
+        direction = (0,0)
+
+        // player dir
+        direction = CALL pathToPlayer
+        velocity = direction * speed;
+        
+        // Apply velocity !
+        position += velocity * dt;
+```
+
+The existing of a SC loop is already known, and since they are both using the same Euler formula, the formula itself can be separated into its own system:
+
+```pseudocode
+FUNCTION applyVelocity(positions, velocities, dt)
+    FOR EACH position, velocity IN positions, velocities
+        position += velocity * dt
+```
+
+Doing so means the engine is running the behavior separately from the data, and this is correct. Systems are just code blocks that transform the data, each of them are functions that represent a specific logic, like applying velocity.
+
+However a new problem emerges: when we try to create a system like `applyVelocity`, the underlying data isn't yet organized into convinient variables like `positions` and `velocities`. They are, instead, own by each object as member variables. 
+
+The solution is just to separate them, removing the ownership of their respective objects and instead putting in a contiguous block of memory. For example, suppose we have one firefly and one enemy:
+
+```
+velocities = [(0,0), (0,0)]
+positions = [(0,0), (0,0)]
+```
+
+The system now has everything to work, meaning it can now be called and therefore, perform its tasks. However, we quickly need to compensate for removing the ownership on both objects:
+
+```pseudocode
+CLASS Firefly IMPLEMENTS i_move 
+    column = 0
+    timer = 0.0
+    function getRandomNum()
+
+    PUBLIC FUNCTION move(dt) OVERRIDE 
+        velocity = velocities[column]
+        timer -= dt
+
+        // Choose random dir
+        IF directionTimer <= 0.0f THEN
+            velocity.x = CALL getRandomNum
+            velocity.y = CALL getRandomNum
+            timer = CALL getRandomNum
+CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render 
+    column = 1
+    speed = 1
+
+    PUBLIC FUNCTION move(float dt) OVERRIDE
+        velocity = velocities[column]
+        direction = (0,0)
+
+        // player dir
+        direction = CALL pathToPlayer
+        velocity = direction * speed;
+```
 
 
-### 3.2.1 Explaining the ECS method: Components
+For small scale simulations where the number of objects is small, this setup can be slower since we are also calling a third extra function just to run two caclulations that were going to be done anyway. However, we are not interested in small simulations because those tend to already be performant anyway.
+
+By only making this change, we already achieve a very crude ECS. Specific components of those objects (position, velocity) are separated, but they are also contiguous inside memory. Meaning they make better use the CPU cache. As the number of objects increase, the advantages in performance are sure to follow.
+
+The downside is that we are not allowed to override a system function, since its just a static function. So if we need to make some task that is too complicated, we will inevitably add more if branches to it. An example of this can be seen inside the render system that will be shown later. 
+
+Notice, however, it sill has OOP elements on it, which is the polymorphism on `move` functions. That is completly fine, since ECS also allow those elements by including a scripting system. 
+
+With all this, let's see the ECS design for the engine tasks by creating different Systems:
+
+```c
+// movement system (already seen)
+FOR EACH MovementComponent, TransformComponent IN movements, transforms
+    // move
+
+// collisions system
+FOR EACH CollisionComponent, MovementComponent, TransformComponent IN colliders, movements, transforms
+    // check collisions
+
+// render system 2d
+FOR EACH MaterialComponent, SpriteComponent IN materials, sprites
+    // render
+
+// render system 3d
+FOR EACH MaterialComponent, MeshComponent IN materials, mesh
+    // render
+
+// etc...
+```
+
+Using that, we solve both the memory locality, since the components are now close together in memory, and the polymorphism overhead, because each system function will be associated with a data structure.
+
+As a rule of thumb, the code inside each loop is generally very specific, because its purpose is to update a very broad range of objects with a well-defined task.  For example: 
+
+- A Movement/Kinetic System updates positions based on velocities
+- A Collision System calculates the intersection between collision boxes
+- A Render System handles filling the batch rendering buffer
+
+![figure3](images/Movement_System.png)
+
+*Figure 3: Movement System performs a scalar multiplication and a sum in two vectors*
+
+<!-- conseider talking about parallelism here -->
+
+
+### 4.2 ECS as remedy: Components
 
 With the main disadvantages of the direct approach already discussed, we can further investigate how the Entity Component System helps us to solve the main problem.
 
@@ -324,65 +471,6 @@ call getComponent sprite at index 1 // { (0.1,0.1), (1.0,1.0,1.0,1.0), 1.0 }
 
 Hence, what we now have is an extra layer of complexity inside our previous simple object. To call the entire object we would need to get every single component.
 
-### 3.2.3 Explaining the ECS method: System
-
-At first glance it might sound a bit weird to organize the data this way because we now have increased the cost of retrieving the original data. We now have to do $N$ function calls, with $N$ being the number of components in our object.
-
-For small scale simulations where the number of objects is close to $N$, this is absolutely correct. However, we are not interested in small simulations because those tend to be performant already due to the small size.
-
-To solve this issue, we must program the behavior separately from the data, using Systems.
-Systems are code that transform the data, each of them are functions that represent the logic. 
-
-To show this, let's consider the previous loop to update the enemy object:
-
-```c
-For each Enemy
-    call updatePhysics
-    call checkCollisions
-    call move
-    call render
-    // etc
-```
-
-Notice that some of those functions are really generic. In fact, they could be implemented elsewhere in a more abstract hierarchical way, by using inheritance. However, we don't want the overhead associated with polymorphism. 
-
-Therefore, let's see the ECS design for this problem by creating different Systems:
-
-```c
-// physics system
-For each Pyhsics Component
-    // update physics
-
-// collisions system
-For each Collision Component
-    // check collisions
-
-// movement system
-For each Movement Component
-    // move
-
-// render system
-For each Render Component
-    // render
-```
-
-The behavior of each component is represented using a for loop that iterates over the entire data structure and performs the update. Using that, we solve both the memory locality, since the components are now close together in memory, and the polymorphism overhead, because each system function will be associated with a data structure.
-
-As a rule of thumb, the code inside each loop is generally very specific, because its purpose is to update a very broad range of objects with a well-defined task.  For example: 
-
-- A Physics System updates velocities based on gravity and other accelerations.
-- A Movement System updates positions based on velocities.
-- A Render System handles filling the batch rendering buffer
-- A Collision System calculates the intersection between collision boxes
-
-This also makes the loop very small compared to per object update. For example, the movement system here will have one line of code, making it easier for the compiler and for us to optimize the code.
-
-
-![figure3](images/Movement_System.png)
-
-*Figure 3: Movement System performs a scalar multiplication and a sum in two vectors*
-
-<!-- conseider talking about parallelism here -->
 
 ### 3.2.4 Explaining the ECS method: Registry
 
