@@ -1,6 +1,6 @@
 # (VERY EARLY DRAFT ONLY)
 
-# Title: Contributions to Entity Component System and Scripting in Game Engines: A Practical Approach to Core Mechanics
+# Title: Unlocking Entity Component Systems in Game Engines: A Practical Approach to Core Mechanics
 
 João Henrique Schmidt de Carvalho - 119050097
 
@@ -61,9 +61,11 @@ ECST is an experimental multithreaded compile-time ECS library. It was developed
 Lastly and perhaps the closest to the present article is Sander Mertens Flecs ECS library, and also exhaustively tested on numerous projects like Tempest Rising, Territory Control 2, Resistance is Brutal, etc <cite>\[[9]\][9]</cite>. Which is also complemented by the amazing blog series "Building and ECS". There, he disclosures what designs and principles were choosen during his making of Flecs<cite>\[[10]\][10]</cite>. Especially the main "Archetype" architecture, which differs from EnTT Sparse-Set.
 
 <!-- Description:
-Description of the problem (done)
+Description of the problem: Object Centric Loops
+Description of the problem: 3 problems of OOP flexibility
+The remedy: Enhancing System Centric Loops
 What is the most common solution (done)
-What is the problem with the common solution 
+What is the problem with the common solution (done)
 Explaining the ECS solution
 What are the Components, the Entities and the Systems
 What is the Registry
@@ -71,7 +73,7 @@ What are the archetypes
 How does Scripting work?
 -->
 
-## 3.1 Description of the problem:
+## 3.1 Description of the problem: Object Centric Loops
 
 There is no way around this subject other than to describe exactly what is being built here. As with any work, its purpose is to solve problems, or at least to solve it in a marginally better way than other existing solutions. To be more precise, there are 2 problems an ECS intends to solve for game engines: 
 
@@ -150,11 +152,11 @@ Now, the problem is solved by using composition, without using multiple inherita
 Node enemy = new Node();
 enemy.data.children.insert({"Mesh", new Mesh{}}, {"Audio", new Audio});
 ```
-Now, if we were to add an interpreted language, we can expose a `insert_component` function to add new components to objects inside the engine, without needing to recompile.
+Now, if we were to add an interpreted language, we can expose a function such as  `insert_component` to add new components to objects inside the engine, without needing to recompile.
 
-With that ready, the developer also needs to iterate between all those objects and update their data. Each object will have at least some sort of action in the game, for example, they need to be rendered, collide, process events, move, change states, etc.
+With that ready, the developer also needs to iterate between all those objects and update their data. Each object will have at least some sort of action in the game, for example, be rendered, collide, process events, move, change states, etc.
 
-Those direct approaches are prone to create two specific code styles to fill those task: a vertical style that is object-centric (OC) and a more horizontal style that is system-centric (SC).
+Those direct approaches are prone to create two specific code styles to fill those tasks: a vertical style that is object-centric (OC) and a more horizontal style that is system-centric (SC).
 
 In the vertical style, each object is called and sequentially updated to perform specific tasks:
 
@@ -179,9 +181,9 @@ FOR EACH firefly IN Fireflies
     // etc
 ```
 
-A little problem emerges: if this example, enemy executes first meaning it can move and collide with the player first. But, in another simulation, if player executes first, then it can run before getting hit.
+A little problem emerges: in this example, enemies executes first meaning it can move and collide with the player first. But, in another simulation, if player executes first, then it can run before getting hit.
 
-Notice however, that many of those functions are performing the same task for many different objects. In OOP we can use to our advantage by implementating interfaces:
+Notice however, that many of those functions are performing the same task for many different objects. So in OOP, we can solve the problem by using interfaces to our advantage:
 
 ```
 INTERFACE i_move IMPLEMENTS move
@@ -205,50 +207,83 @@ Why is this necessary? Mainly because it can happen that one operation conceptua
 
 This is a system centric loop but not an ECS yet. This specific style, which is common in OOP, still has 3 performance issues.
 
+## 3.2 Description of the problem: 3 problems of OOP flexibility 
 <!-- 1. polymorphism overhead -->
 
-The first one is polymorphism overhead. Dynamic polymorphism in typical OOP implementations commonly uses an indirect dispatch mechanism. Why? Because whenever you call a method of a base class or using interfaces, the call itself involves one indirect step before the actual code is reached, and this redirection creates the overhead. Its cost usually depends on implementation, $C++$ usually does this with the use of vTables, which are very straightforward indexed tables, which links virtual functions to real functions.
-But what is the overhead? At runtime the program needs to check inside the vTable what is the correct link between the virtual function and the actual function before performing the call. That extra step is what makes the program slow down<cite>\[[6]\][6]</cite>, but aslo make 
+The first one is polymorphism overhead. Dynamic polymorphism in typical OOP implementations commonly uses an indirect dispatch mechanism. Why? Because whenever you call a method of a base class or using interfaces, the call itself involves one indirect step before the actual code is reached, and this redirection creates the overhead. Its cost usually depends on implementation, $C++$ usually does this with the use of vTables, which are very straightforward indexed tables that links virtual functions to real functions.
+But what is the overhead? At runtime the program needs to check inside the vTable what is the correct link between the virtual function and the actual function before performing the call. That extra step is what makes the program slow down<cite>\[[6]\][6]</cite>
 
 ![Figure1](images/vtable.png)
 
 *Figure 1: Example of vTable storing the linkage between two derived classes*
 
+It's designed this way on purpose. For example, both enemies and fireflies implement a move function, but firefly function may not necessarly be the same as enemies since flies usually move on 3 axis, including up and down. Interfaces therefore, also allow you to modify the function bodies per class at the cost of a little memory and cpu.
+
 <!-- 2. Memory locality -->
 
-The second problem is the memory locality. In the ECS case, the data will always be stored into a data structure of your choice, like an array or a map. Since you have the option to store all data in a contiguous section in your memory, there will never be a case where a different, less optimal data structure will be used instead, unless it is for a very exotic case such as if it strongly benefits from linked lists. However, such data structures can still be contiguously represented.
+The second problem is the memory locality. In the ECS case, the data will always be stored into a data structure of your choice, like an array or a map. Since you have the option to store all data in a single pool, you might as well store on a contiguous section in your memory.  
 
-However, when iterating in the non ECS way, you are looping in the data of the entire object first before going to the next object. It is possible to clearly see the cost by doing a simple test. *Exempli gratia*, writing a small loop to sum all elements of a matrix:
+However, when iterating in OOP, you are looping in the data of the entire object first before going to the next object. If such object has different members that arent't being used in the function, your instruction will have to skip them. 
 
-```c
-Initialize result to 0
-For each column index j from 0 to colsA - 1:
-    For each row index i from 0 to rowsA - 1:
-        Add the element A[i][j] to result
+It is possible to clearly see the cost by doing a simple test. E.g, writing a small loop to sum all elements of a matrix "A":
+
 ```
-When implemented in C++, this code will execute in 4.46 seconds for a square matrix A of size $20000$
-```c
-Initialize result to 0
-For each row index i from 0 to rowsA - 1:
-    For each column index j from 0 to colsA - 1:
-        Add the element A[i][j] to result
+INITIALIZE result TO 0
+INITIALIZE A TO MATRIX(20000,20000)
+
+FOR EACH i from 0 to A.rows - 1:
+    FOR EACH j FROM 0 TO A.cols - 1:
+        ADD A[i][j] TO result
 ```
-When implemented in C++, this code will execute in 1.15 seconds for a square matrix A of size $20000$
+
+When implemented in C, this code will execute in 1.78 seconds for a square matrix A of size $20000$
+```
+INITIALIZE result TO 0
+INITIALIZE A TO MATRIX(20000,20000)
+
+FOR EACH j FROM 0 TO A.cols - 1:
+    FOR EACH i from 0 to A.rows - 1:
+        ADD A[i][j] TO result
+```
+When implemented in C, this code will execute in 2.23 seconds for a square matrix A of size $20000$, a 25% increase
+
+<!-- creates full table here using `perf stat -e '{cache-references,cache-misses},{L1-dcache-loads,L1-dcache-load-misses},{LLC-loads,LLC-load-misses}' ./tcc/matrix_test/rowWise` -->
 
 What is happening here? In the memory, the data for matrix A is stored in the following layout:
 
 ```
-A[0][0], A[0][1], A[0][2], ..., A[1][0], A[1][1], ...
+A[0][0], A[0][1], A[0][2], ..., A[0][N], A[1][0], ..., A[1][N], ..., A[N][N]
 ```
-When we iterate between all lines first, we are essentially jumping $20000$ bytes of integers for every single integration. This leads to cache misses because each element is further apart in memory. In the end, this just shows what is already known, it is better for the CPU to iterate over arrays that are contiguous in memory.
+
+When the CPU reads memory, it generally does not fetch just the 4-byte float like we requested. It fetches a cache line, typically something like 64 bytes on modern CPUs. So, when requesting:
+
+```
+A[0][0], A[0][1], A[0][2], A[0][3], A[0][4], A[0][5], A[0][6], A[0][7], A[0][8], ...
+```
+
+The CPU can request the next number from his own cache instead of fecthing again.
+
+If we choosen to not do it, we are essentially jumping $20000$ bytes of integers for every single iteration, and this increase the cache misses we see on perf command. In the end, this just shows what is already known, it is better for the CPU if the loops operates with arrays that are contiguous in memory.
 
 With this we conclude the two disadvantages of not using an ECS style to deal with objects in a simulation.
 
-However, there is a third, very indirect problem: which is the difficulty of implementing parallelism when compared to ECS...
+However, there is a third, very indirect problem: which is the difficulty of implementing parallelism when compared to ECS... To be more precise, the work needed to parallelize ECS systems is smaller than OOP cases because of the restrictions it impose. 
 
-To make a brief introduction as to why: the main problem with parallelization is finding units of processing which don't share any data, but because the data that is often iterated is mostly in the same set of components, there is a very high probability that the data inside a single for loop is unrelated to each other, which allow easy concurrency.
+I will talk more about this when discussing systems, but to make a brief introduction as to why: the main problem with parallelization is finding units of processing which don't share any data, but because data in ECSs often iterated is mostly with the same set of components, there is a guarantee that the data inside a single system is unrelated to each other, which allows easy concurrency. 
 
-Because there isn't any concrete example of an ECS System is rather subjective at this stage, and can be shown better later when we discuss some implementations.
+<!-- comparasions with cuda :
+GPU programming	vs ECS
+Kernel vs	System
+Thread vs	Entity / query iteration
+Global memory	vs Component storage
+Thread block vs	Chunk / archetype
+Grid vs	Entire query
+Kernel dispatch	vs System execution
+Kernel arguments vs	Query/resources
+Synchronization	System vs ordering/dependencies
+-->
+
+
 
 ### 3.2.1 Explaining the ECS method: Components
 
