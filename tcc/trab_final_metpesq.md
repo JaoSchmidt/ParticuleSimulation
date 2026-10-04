@@ -349,7 +349,7 @@ Doing so means the engine is running the behavior separately from the data, and 
 
 However a new problem emerges: when we try to create a system like `applyVelocity`, the underlying data isn't yet organized into convinient variables like `positions` and `velocities`. They are, instead, own by each object as member variables. 
 
-The solution is just to separate them, removing the ownership of their respective objects and instead putting in a contiguous block of memory. For example, suppose we have one firefly and one enemy:
+The solution is to just to separate them, removing the ownership of their respective objects and instead putting in a contiguous block of memory. For example, suppose we have one firefly and one enemy:
 
 ```
 velocities = [(0,0), (0,0)]
@@ -397,58 +397,183 @@ Notice, however, it sill has OOP elements on it, which is the polymorphism on `m
 
 With all this, let's see the ECS design for the engine tasks by creating different Systems:
 
-```c
+```
+// interface functions
+FOR EACH movable IN movables
+    CALL (i_move) movable.move
+FOR EACH renderable IN renderables
+    CALL (i_render) renderable.render
+FOR EACH collider IN collidable
+    CALL (i_collidable) collider.checkCollisions
+
 // movement system (already seen)
-FOR EACH MovementComponent, TransformComponent IN movements, transforms
+FOR EACH movementComponent, transformComponent IN movements, transforms
     // move
 
 // collisions system
-FOR EACH CollisionComponent, MovementComponent, TransformComponent IN colliders, movements, transforms
+FOR EACH collisionComponent, movementComponent, transformComponent IN colliders, movements, transforms
     // check collisions
 
 // render system 2d
-FOR EACH MaterialComponent, SpriteComponent IN materials, sprites
+FOR EACH materialComponent, spriteComponent IN materials, sprites
     // render
 
 // render system 3d
-FOR EACH MaterialComponent, MeshComponent IN materials, mesh
+FOR EACH materialComponent, meshComponent IN materials, meshes
     // render
-
 // etc...
 ```
-
-Using that, we solve both the memory locality, since the components are now close together in memory, and the polymorphism overhead, because each system function will be associated with a data structure.
-
-As a rule of thumb, the code inside each loop is generally very specific, because its purpose is to update a very broad range of objects with a well-defined task.  For example: 
-
-- A Movement/Kinetic System updates positions based on velocities
-- A Collision System calculates the intersection between collision boxes
-- A Render System handles filling the batch rendering buffer
 
 ![figure3](images/Movement_System.png)
 
 *Figure 3: Movement System performs a scalar multiplication and a sum in two vectors*
+
+Using that, we solve memory locality, since the components are now close together in memory, but we still have the polymorphism overhead, because each system function still proceed an interface function. One way to solve this is to create more and more SC functions, until the entire object update is performed by systems.
+
+Even if that isn't possible, since they will all use contiguous memory, they are at minimum still performing faster even if we include interfaces.
+
+But how to creaate more systems? As a rule of thumb, the code inside each loop is generally very specific, because their purpose is to update a very broad range of objects with a well-defined task. For example: 
+
+- A Movement/Kinetic System updates positions based on velocities
+- A Collision System calculates the intersection between collision boxes
+- A Render System handles filling the batch rendering buffer
+- Lifetime System decrements timers and removes entities when their lifetime expires
+- Particle System updates particle positions, velocities, colors, and lifetimes of swarms
+- UI System updates UI elements based on application or gameplay state.
+- Event System dispatches and processes gameplay functions between objects
+- AI System updates decision-making, behavior trees, paths, or state machines
+- Scripting System executes scripts attached to objects for everything else
+- _etc_
+
+The process of creating them follows the same principle of an optimization fluxogram: if any function proves to be source of constant bottlenecks, then moving the loop from OC to SC becomes more attractive. 
 
 <!-- conseider talking about parallelism here -->
 
 
 ### 4.2 ECS as remedy: Components
 
-With the main disadvantages of the direct approach already discussed, we can further investigate how the Entity Component System helps us to solve the main problem.
+<!-- 
+With the main disadvantages of the direct approach already discussed, we can further investigate how the ECS helps us to solve the main problem.
 
 There isn't a bible of what makes a good ECS, because its purpose is to help with game development. So any explanation said here, although common when search through blogs and Q&A websites, are not strictly speaking *rules*. What is certain, is that it is performant enough to withstand different robustness tests, which are shown in the results section.
 
 That being said, given the nature of the examples, it would be safe to assume that the implemented solution also has the capacity to withstand less robust, more common games, which is the case for most games on the market.
-
 Like any other application, games have objects, like enemies, non-playable-characters, props, light sources, inventories, terrain, fluids, etc. 
 
 The first step is to turn a complex object into many small structs, such as: Mesh, Audio, Sprite, Transforms, Velocity, Angular Velocity, Collision Box, Particles, Camera, etc. 
 
 Those structures are called components, and they by themselves are just data without behavior. The idea is that they don't contain logic nor dependencies because the former is directive of the Systems and the latter is directive of the Archetypes.
+-->
+
+When expanding an object, we can expand its methods by polymorphism. However, the same isn't true for its data definition, which is always entirely copied to the derived class. Meaning that, the changes made to firefly and enemy examples are just different models of basic ownership: which entirely move members into dedicated data structures, completly orthogonal to OOP.  
+
+Previously there were only 2 objects both with 1 set o components:
+```
+velocities = [(0,0), (0,0)]
+positions = [(0,0), (0,0)]
+```
+However, our example was too shallow, it didn't show what to do when clases with different components are at play. 
+
+To make this concrete, let's go back to the three classes that were left over from the OOP hierarchy: a `Player`, a `Lamp` and a `Wall`. Arbitrarly written the OOP way, they look like this:
+
+```pseudocode
+CLASS Player IMPLEMENTS i_move, i_collidable, i_render
+  position = (0,0)
+  velocity = (0,0)
+  collider = (0,0)
+  input = (0, 0)
+  health = 100
+
+  PUBLIC FUNCTION move OVERRIDE
+      // walk using input
+  PUBLIC FUNCTION checkCollisions OVERRIDE
+      // collide with walls
+  PUBLIC FUNCTION render OVERRIDE
+      // draw sprite
+
+CLASS Lamp EXTENDS i_move, i_render
+  position = (0,0)
+  intensity = 1.0
+  isOn = true
+
+  PUBLIC FUNCTION render OVERRIDE
+      // draw mesh + light
+
+CLASS Wall EXTENDS i_render, i_collidable
+  position = (0,0)
+  collider = (0,0)
+
+  PUBLIC FUNCTION checkCollisions OVERRIDE
+      // block the player and other collidables
+  PUBLIC FUNCTION render OVERRIDE
+      // draw mesh and material
+```
+
+
+We just need to move the ownership `position`, `velocity` and `collider` would result in 3 components. If 300 were initialized in 3D space, they would generate the following matrix:
+
+| Component              | $player_0$ | $\cdots$ | $player_{99}$ | $firefly_0$ | $\cdots$ | $firefly_{99}$ | $wall_0$  | $\cdots$ | $wall_{99}$ |
+| ---------------------- | ---------- | -------- | ------------- | ----------- | -------- | -------------- | --------- | -------- | ----------- |
+| **TransformComponent** | $(0,0,0)$  | $\cdots$ | $(0,0,0)$     | $(0,0,0)$   | $\cdots$ | $(0,0,0)$      | $(0,0,0)$ | $\cdots$ | $(0,0,0)$   |
+| **ColliderComponent**  | $(0,0,0)$  | $\cdots$ | $(0,0,0)$     | —           | $\cdots$ | —              | $(0,0,0)$ | $\cdots$ | $(0,0,0)$   |
+| **VelocityComponent**  | $(0,0,0)$  | $\cdots$ | $(0,0,0)$     | $(0,0,0)$   | $\cdots$ | $(0,0,0)$      | —         | $\cdots$ | —           |
+
+There are two main problems. The first is that representing components as a matrix indexed by entity forces each component array to reserve space for every entity, even when most entities do not possess that component. This creates sparse data structures: iterating over a component requires either checking for missing components or traversing unused entries, while memory is also consumed by slots that contain no component at all.
+
+The second, and perhaps most obvious, is that even if never used, it still would consume a lot of memory. 
+
+"How to solve" this problem is the question for the next 3 chapters and the core of ECS development and discussions. But first, the natural first step is to allow systems to select sets of components.
+
+
+Why? Because Systems interact with the engine by asking for specific queries. Each should ask the ECS library what component it want to iterate with. Infering this logic, it is expected that each system has a yes/no decision for every component, meaning it is possible to use bitmask logic with it, something that CPUs happens to handle very well.
+
+To do this, we can associate every component with a base 2 ID:
+
+```pseudocode
+CLASS TransformComponent   // { (0,0), 0.0, (1,1) } position, rotation, scale
+  STATIC id = 1
+CLASS VelocityComponent   // { (0,0) } linear velocity
+  STATIC id = 2
+CLASS SpriteComponent     // { (0,1), (32,32) } texture rect, size
+  STATIC id = 4
+CLASS MeshComponent       // { "cube", "brick" } mesh handle, material
+  STATIC id = 8
+CLASS LightComponent      // { (1,0.9,0.7), 1.0, true } color, intensity, enabled
+  STATIC id = 16
+CLASS ColliderComponent   // { (16,16), false } half extents, isTrigger
+  STATIC id = 32
+CLASS AudioComponent      // { "step.wav", 1.0 } clip handle, volume
+  STATIC id = 64
+CLASS MaterialComponent     // { "Texture.glsl", 0xFFFFFF }, shader, color
+  STATIC id = 128
+// etc...
+```
+
+Therefore, quering the correct component is now simply a matter of using bitmask `OR` operator, allowing us to properly define the vectors `movements`, `transforms`, `sprites`, etc from the last example:
+
+```
+FUNCTION query(Components...)
+  bitMask = 0
+  FOR EACH Component IN Components
+    bitMask = bitmask | Component.id
+  
+  selectedVectors = {}
+  FOR EACH vector IN componentVectors
+    IF vector.mask & bitMask != bitMask THEN
+       selectedVectors.insert(vector)
+  RETURN selectedVectors
+
+
+// ... later in the systems section:
+movements, positions = CALL query(TransformComponent.id, VelocityComponent.id)
+FOR EACH movementComponent, transformComponent IN movements, positions
+    // move
+```
+
 
 <!-- maybe an image here? -->
 
-### 3.2.2 Explaining the ECS method: Entity
+### 4.3 ECS as remedy: Entity
 
 There are different views for what constitutes an entity or what it's supposed to represent. For example, if you search on Wikipedia for ECS, they will define "Entity" as a general-purpose object, id est, a game object. Some articles at medium also define that way. In contrast, the Entity Systems Wiki defines as a container which components can be added. 
 I, however, decided to go with the definition used by Unity Engine: Which states that entities are just indices which represent objects IDs. On C++ terms, it means that they are integers.
@@ -472,7 +597,7 @@ call getComponent sprite at index 1 // { (0.1,0.1), (1.0,1.0,1.0,1.0), 1.0 }
 Hence, what we now have is an extra layer of complexity inside our previous simple object. To call the entire object we would need to get every single component.
 
 
-### 3.2.4 Explaining the ECS method: Registry
+### 4.4 ECS as remedy: Registry
 
 In programming, a wrapper is a program or code that surrounds other program components, providing an interface for easier interaction with the wrapped functionality.
 
@@ -491,7 +616,7 @@ Going a little deeper inside the code, the registry serves as a general wrapper 
 
 Registries are hard because they will be accessed every time, making them very performance critical. Usually requiring different template specific code to be able to run as clean as possible, making the developer interaction with the registry feels as if it isn't even there.
 
-### 3.2.5 Explaining the ECS method: Archetypes
+### 4.5 ECS as remedy: Archetypes
 
 With the registry being built we can now start to talk about Archetypes. Archetypes are sets of components that are joined together. They represent the dependency between components. 
 
@@ -556,7 +681,7 @@ With this, we successfully iterate both components without an additional search 
 
 Notice that, for the Movement System, this design isn't free, because now its `for` loop will be effectively cut into two for it to correctly iterate both arrays.
 
-### 3.2.6 Explaining the ECS method: Scripting
+### 4.6 Explaining the ECS method: Scripting
 
 After reviewing the ECS, anyone would be thinking on how hard it would be to replace the direct approach with the ECS approach for all the problems.
 After all, to write everything you must abstract based on behaviors of all entities, and not based on individual objects. 
@@ -570,7 +695,7 @@ This solution is often used together with a scripting language, which also abstr
 Skip this for now as it will too stupid to talk about something that I barely know for now
 -->
 
-## 3.3 Expected Results of Simulation:
+## 5 Expected Results of Simulation:
 
 <!--
 I will create some simulations/games to fully explore the expected result scenes.
@@ -588,14 +713,14 @@ The expected outcomes include:
 - A scripting system that is performant when compared to traditional compiled languages like C# and C++.  
 - A robust registry system that matches or surpasses the performance of EnTT or similar ECS projects.
 
-### 3.3.1 Planned Test Cases:
+### 5.1 Planned Test Cases:
 To achieve these results, I will implement and test the engine using the following scenarios:  
 - **AI Battle Simulation:** Create a clone of the Pezza [AI battle simulation](https://www.youtube.com/watch?v=f_HwyDfvCZQ), where multiple AI agents interact in real-time. This will stress-test the ECS, scripting, and real-time decision-making systems.  
 - **Physics Simulations:** Implement simulations involving water or numerous colliding particles, scenarios commonly found in physics-heavy games. This will validate the engine’s physics system and its ability to handle numerous calculations efficiently.  
 - **High-Object Density Scene:** Design a small scene with a significant number of particles and objects, then intentionally push the system to its limits to identify breaking points and performance bottlenecks.
 - Et cetera.
 
-### 3.3.2 Achieving Robustness:
+### 5.2 Achieving Robustness:
 While game engines are never truly “finished,” the goal is to push the boundaries of what most general-purpose engines achieve within the defined scope of this project. By iterating on each of these tests and striving to exceed or match the benchmarks of existing engines, I aim to demonstrate the robustness and performance of the systems I have built. These efforts will also provide a foundation for future enhancements and expansions of the engine.
 
 ## References
