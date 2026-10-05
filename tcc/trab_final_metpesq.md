@@ -119,16 +119,17 @@ Or, if you language support multiple inheritance, you can do the following:
 CLASS MeshWithAudio EXTENDS Mesh, Audio
 CLASS LightWithAudio EXTENDS Light, Audio
 CLASS LightMeshWithAudio EXTENDS Light, Mesh, Audio
-CLASS CollisionWithMesh EXTENDS Collider, Mesh
+CLASS CollisionWithSprite EXTENDS Collider, Sprite
+// etc...
 ```
 Either way, using those primary objects, you would need to make it available for the developer, so it can be used on actual objects, e.g.:
 
 ```pseudocode
-CLASS Enemy EXTENDS ColliderWithhMeshWithAudio
-CLASS Player EXTENDS ColliderWithhMeshWithAudio
+CLASS Enemy EXTENDS ColliderSpriteWithAudio
+CLASS Player EXTENDS ColliderSpriteWithAudio
 CLASS Firefly EXTENDS LightWithAudio 
-CLASS Lamp EXTENDS LightMeshWithAudio
-CLASS Wall EXTENDS CollisionWithMesh
+CLASS Lamp EXTENDS LightMeshAudioCollider
+CLASS Wall EXTENDS CollisionWithSprite
 ```
 
 Therefore, you would need to define $2^N$ different classes, which is not feasable for higher values of $N$. Let's explore how Godot, which is an exclusively OOP engine, solve this problem inside their definiton of `Node` at `scene/main/node.h` <cite>\[[11]\][11]</cite>
@@ -146,7 +147,7 @@ class Node : public Object {
 };
 ```
 
-Now, the problem is solved by using composition, without using multiple inheritance. From Godot perspective, you can place new components inside its children hashmap, and as long as it is inherited from Node, you will have your object as complex as necessary.
+Now, the problem is solved by using composition and trees, without using multiple inheritance. From Godot perspective, you can place new components inside its children hashmap, and as long as it is inherited from Node, you will have your object as complex as necessary.
 
 ```cpp
 Node enemy = new Node();
@@ -172,12 +173,16 @@ FOR EACH player IN Players
   player.move()
   player.checkCollisions()
   player.render()
-  player.hideFromEnemy()
+  // etc
+
+FOR EACH lamp IN Lamps
+  lamp.checkCollisions()
+  lamp.render()
   // etc
 
 FOR EACH firefly IN Fireflies
   firefly.move()
-  firefly.emmit()
+  firefly.render()
   // etc
 ```
 
@@ -192,9 +197,14 @@ INTERFACE i_collidable IMPLEMENTS checkCollisions
 
 CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
 CLASS Player IMPLEMENTS i_move, i_collidable, i_render
-CLASS Firefly IMPLEMENTS i_move
+CLASS Lamp IMPLEMENTS i_collidable, i_render
+CLASS Firefly IMPLEMENTS i_move, i_render
 
 // ...later
+movables.add(NEW Enemy(), NEW Player(), NEW Firefly())
+renderables.add(NEW Enemy(), NEW Player(), NEW Lamp(), NEW Firefly())
+collidable.add(NEW Enemy(), NEW Player(), NEW Lamp())
+
 FOR EACH movable IN movables
   (i_move) movable.move()
 FOR EACH renderable IN renderables
@@ -203,7 +213,7 @@ FOR EACH collider IN collidable
   (i_collidable) collider.checkCollisions()
 ```
 
-Why is this necessary? Mainly because it can happen that one operation conceptually needs to happen for all objects before another operation begins. Now both player and enemy need to make their moves before checking their collision, solving that little problem.
+Why is this necessary? Mainly because it can happen that one operation conceptually needs to happen for all objects before another operation begins. Now enemies need to make their moves before checking their collisions, solving that little problem.
 
 This is a SC loop but not an ECS yet. This specific style, which is common in OOP, still has 3 performance issues.
 
@@ -288,19 +298,21 @@ Synchronization	System vs ordering/dependencies
 The previous OOP SC loop also allows for further flexibility when it comes to completing engine tasks. For example:
 
 ```pseudocode
-CLASS Firefly IMPLEMENTS i_move
+CLASS Firefly IMPLEMENTS i_move, i_render
   FUNCTION move OVERRIDE
     // move firefly ...
+  // ... rest of the class
 
 CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
   FUNCTION move OVERRIDE
     // move enemy ...
+  // ... rest of the class
 ```
 
-This is a useful flexibility to have, but it's also probable that the developer will implement some repeated calculation. For example, let's us suppose a very simple firefly would use 3 members:
+This is a useful flexibility to have, but it's also probable that the developer will implement some repeated calculation. For example, let's suppose a very simple firefly would use 5 members:
 
 ```pseudocode
-CLASS Firefly IMPLEMENTS i_move 
+CLASS Firefly IMPLEMENTS i_move, i_render 
   position = (0,0)
   velocity = (0,0)
   intensity = 1
@@ -317,20 +329,21 @@ CLASS Firefly IMPLEMENTS i_move
 
     // Apply velocity !
     position += velocity * dt
-  PUBLIC FUNCTION render() OVERRIDE
-          
+
+  PUBLIC FUNCTION render OVERRIDE
+    // draw light
+  // ... rest of the class
 ```
-Similarly, a very simple enemy that just follows the player would also need to apply both position and velocity:
+Similarly, a very simple enemy that just follows the player would also need to apply both position and velocity, alongside other members:
 
 ```pseudocode
 CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render 
   position = (0,0)
-  collider = (0,0)
   velocity = (0,0)
-  mesh = {}
+  collider = (1,1)
   speed = 1
-  input = (0, 0)
-  health = 100
+  sprite = { TYPE::SQUARE, (1,1) }
+  material = { "Texture.glsl", 0xFFFFFF }
 
   PUBLIC FUNCTION move(float dt) OVERRIDE
     direction = (0,0)
@@ -341,9 +354,15 @@ CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
     
     // Apply velocity !
     position += velocity * dt;
+
+  PUBLIC FUNCTION checkCollisions OVERRIDE
+    // collide with other colliders
+  PUBLIC FUNCTION render OVERRIDE
+    // draw sprite and material
+  // ... rest of the class
 ```
 
-The existing of a SC loop is already known, and since they are both using the same Euler formula, the formula itself can be separated into its own system:
+The existance of a SC loop is already known by us. Since they are both using the same Euler formula, the formula itself can be moved to the SC loop:
 
 ```pseudocode
 FUNCTION applyVelocity(positions, velocities, dt)
@@ -351,7 +370,7 @@ FUNCTION applyVelocity(positions, velocities, dt)
     position += velocity * dt
 ```
 
-Doing so means the engine is running the behavior separately from the data, and this is correct. Systems are just code blocks that transform the data, each of them are functions that represent a specific logic, like applying velocity.
+Doing so means the engine is running the behavior separately from the data, and this is correct. Systems are just code blocks that transforms data, each of them are functions that represent a specific logic, like applying velocity.
 
 However a new problem emerges: when we try to create a system like `applyVelocity`, the underlying data isn't yet organized into convinient variables like `positions` and `velocities`. They are, instead, own by each object as member variables. 
 
@@ -367,11 +386,11 @@ The system now has everything to work, meaning it can now be called and therefor
 ```pseudocode
 CLASS Firefly IMPLEMENTS i_move 
   column = 0
+  intensity = 1
   timer = 0.0
-  function getRandomNum()
 
   PUBLIC FUNCTION move(dt) OVERRIDE 
-    velocity = velocities[column]
+    velocity = velocities[column] // now retrieving from outside ownership
     timer -= dt
 
     // Choose random dir
@@ -379,27 +398,27 @@ CLASS Firefly IMPLEMENTS i_move
       velocity.x = getRandomNum()
       velocity.y = getRandomNum()
       timer = getRandomNum()
+    // No need to apply velocity to position
 
+  // ... rest of the class
 CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render 
   column = 1
+  collider = (1,1)
   speed = 1
-  collider = (0,0)
-  mesh = {}
-  speed = 1
-  input = (0, 0)
-  health = 100
+  sprite = { TYPE::SQUARE, (1,1) }
+  material = { "Texture.glsl", 0xFFFFFF }
 
   PUBLIC FUNCTION move(float dt) OVERRIDE
-    velocity = velocities[column]
+    velocity = velocities[column] // now retrieving from outside ownership
     direction = (0,0)
 
     // player dir
     direction = pathToPlayer()
     velocity = direction * speed;
-  PUBLIC FUNCTION checkCollisions OVERRIDE
-    // collide with other colliders
-  PUBLIC FUNCTION render OVERRIDE
-    // draw mesh and material
+
+    // No need to apply velocity to position
+
+  // ... rest of the class
 ```
 
 
@@ -409,7 +428,7 @@ By only making this change, we already achieve a very crude ECS. Specific compon
 
 The downside is that we are not allowed to override a system function, since its just a static function. So if we need to make some task that is too complicated, we will inevitably add more if branches to it. An example of this can be seen inside the render system that will be shown later. 
 
-Notice, however, it sill has OOP elements on it, which is the polymorphism on `move` functions. That is completly fine, since ECS also allow those elements by including a scripting system. 
+Notice, however, it sill has OOP elements on it, which is the polymorphism on methods like `move`, `render`, `checkCollision`, etc. That is completly fine, since ECS also allow those elements by including a scripting system. 
 
 With all this, let's see the ECS design for the engine tasks by creating different Systems:
 
@@ -430,13 +449,10 @@ FOR EACH movementComponent, transformComponent IN movements, transforms
 FOR EACH collisionComponent, movementComponent, transformComponent IN colliders, movements, transforms
   // check collisions
 
-// render system 2d
+// render system 
 FOR EACH materialComponent, spriteComponent IN materials, sprites
   // render
 
-// render system 3d
-FOR EACH materialComponent, meshComponent IN materials, meshes
-  // render
 // etc...
 ```
 
@@ -477,52 +493,55 @@ positions = [(0,0), (0,0)]
 ```
 However, our example was too shallow, it didn't show what to do when clases with different components are at play. 
 
-To make this concrete, let's go back to the three classes that were left over from the OOP hierarchy: a `Enemy`, a `Firefly` and a `Wall`. Arbitrarly written the OOP way, they look like this:
+To make this concrete, let's go back to our modified classes that were left over from the OOP hierarchy: `Enemy` and a `Firefly`. On a whim, the developer also included a `Wall`, our third object.
+
+
+We didn't touched the other members until now and our objective is to move the maximum amount of members into a contiguous memory, as well as removing functions that are already on the system. So let's do that.
 
 ```pseudocode
-CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
-  position = (0,0)
-  velocity = (0,0)
-  collider = (0,0)
-  input = (0, 0)
+CLASS Enemy IMPLEMENTS i_move
+  column = 1
   speed = 1
-  health = 100
-  mesh = {}
+  sprite = {}
 
   PUBLIC FUNCTION move OVERRIDE
-    // walk following player
-  PUBLIC FUNCTION checkCollisions OVERRIDE
-    // collide with other colliders
-  PUBLIC FUNCTION render OVERRIDE
-    // draw mesh and material
+    // still needs speed for the velocity module
 
-CLASS Lamp EXTENDS i_move, i_render
-  position = (0,0)
-  intensity = 1.0
-  isOn = true
+  // ... rest of the class
 
-  PUBLIC FUNCTION render OVERRIDE
-    // draw mesh + light
+CLASS Firefly IMPLEMENTS i_move
+  column = 0
+  timer = 0.0
 
-CLASS Wall EXTENDS i_render, i_collidable
-  position = (0,0)
-  mesh = {}
-  collider = (0,0)
+  PUBLIC FUNCTION move(dt) OVERRIDE 
+    // still needs timer
 
-  PUBLIC FUNCTION checkCollisions OVERRIDE
-    // block the player and other collidables
-  PUBLIC FUNCTION render OVERRIDE
-    // draw mesh and material
+  // ... rest of the class
+
+CLASS Wall
+  column = 2
+
+
+velocities = [(0,0), (0,0), NULL]
+positions = [(0,0), (0,0), (0,0)]
+collider = [NULL, (1,1), (1,1)] 
+material = [NULL, {"Texture.glsl", 0xFFFFFF }, {"Texture.glsl", 0xAA11FF}]
+sprite = [NULL, {TYPE::SQUARE, (1,1)}, {TYPE::RECT, (1,1)}] 
+light = [{intensity = 1}, NULL, NULL] // firefly light component was transported
 ```
 
 
-We just need to move the ownership `position`, `velocity` and `collider` would result in 3 components. If 300 were initialized in 3D space, they would generate the following matrix:
+We are starting to create a matrix of components. If 100 of each were initialized, they would generate the following matrix:
 
-| Component              | $enemy_0$ | $\cdots$ | $enemy_{99}$ | $firefly_0$ | $\cdots$ | $firefly_{99}$ | $wall_0$  | $\cdots$ | $wall_{99}$ |
-| ---------------------- | ---------- | -------- | ------------- | ----------- | -------- | -------------- | --------- | -------- | ----------- |
-| **TransformComponent** | $(0,0,0)$  | $\cdots$ | $(0,0,0)$     | $(0,0,0)$   | $\cdots$ | $(0,0,0)$      | $(0,0,0)$ | $\cdots$ | $(0,0,0)$   |
-| **ColliderComponent**  | $(0,0,0)$  | $\cdots$ | $(0,0,0)$     | —           | $\cdots$ | —              | $(0,0,0)$ | $\cdots$ | $(0,0,0)$   |
-| **VelocityComponent**  | $(0,0,0)$  | $\cdots$ | $(0,0,0)$     | $(0,0,0)$   | $\cdots$ | $(0,0,0)$      | —         | $\cdots$ | —           |
+| Component              | $enemy_0$                    | $\cdots$ | $enemy_{99}$                 | $firefly_0$       | $\cdots$ | $firefly_{99}$    | $wall_0$                     | $\cdots$ | $wall_{99}$                  |
+| ---------------------- | ---------------------------- | -------- | ---------------------------- | ----------------- | -------- | ----------------- | ---------------------------- | -------- | ---------------------------- |
+| **TransformComponent** | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$           | $\cdots$ | $(0,0)$           | $(0,0)$                      | $\cdots$ | $(0,0)$                      |
+| **ColliderComponent**  | $(1,1)$                      | $\cdots$ | $(1,1)$                      | —                 | $\cdots$ | —                 | $(1,1)$                      | $\cdots$ | $(1,1)$                      |
+| **VelocityComponent**  | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$           | $\cdots$ | $(0,0)$           | —                            | $\cdots$ | —                            |
+| **MaterialComponent**  | `{"Texture.glsl", 0xFFFFFF}` | $\cdots$ | `{"Texture.glsl", 0xFFFFFF}` | —                 | $\cdots$ | —                 | `{"Texture.glsl", 0xAA11FF}` | $\cdots$ | `{"Texture.glsl", 0xAA11FF}` |
+| **SpriteComponent**    | `{TYPE::SQUARE, (1,1)}`      | $\cdots$ | `{TYPE::SQUARE, (1,1)}`      | —                 | $\cdots$ | —                 | `{TYPE::RECT, (1,1)}`        | $\cdots$ | `{TYPE::RECT, (1,1)}`        |
+| **LightComponent**     | —                            | $\cdots$ | —                            | `{intensity = 1}` | $\cdots$ | `{intensity = 1}` | —                            | $\cdots$ | —                            |
+
 
 There are two main problems. The first is that, representing components as a matrix indexed by entity obligates each component array to reserve space for every entity, even when most entities do not possess that component. This creates sparse data structures: iterating over a component requires either checking for missing components or traversing unused entries, while memory is also consumed by slots that contain no component at all.
 
@@ -575,32 +594,6 @@ FOR EACH movementComponent, transformComponent IN movements, positions
 ```
 
 The query function now allows us to filter specific components that we want. `componentVectors` isn't defined yet but that is on purpose. For now, we also need to worry about the accessing specific members. For example, script outside the SC need to be able to access their specific component:
-
-```
-CLASS Firefly IMPLEMENTS i_move 
-  column = 0
-  timer = 0.0
-  function getRandomNum()
-
-  PUBLIC FUNCTION move(dt) OVERRIDE 
-    velocity = velocities[column]
-    // Choose random dir
-    IF directionTimer <= 0.0f THEN
-      velocity.x = getRandomNum()
-      velocity.y = getRandomNum()
-      timer = getRandomNum()
-CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render 
-  column = 1
-  speed = 1
-
-  PUBLIC FUNCTION move(float dt) OVERRIDE
-    velocity = velocities[column]
-    direction = (0,0)
-
-    // player dir
-    direction = pathToPlayer()
-    velocity = direction * speed;
-```
 
 <!-- maybe an image here? -->
 
