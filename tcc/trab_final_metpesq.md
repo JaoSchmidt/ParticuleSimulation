@@ -83,7 +83,7 @@ For example, it might have objects like lights, meshes, audios, sprites, transfo
 
 <!-- NOTE: this is pseudocode, "c" is here because i like highlight-->
 
-```
+```pseudocode
 CLASS Mesh EXTENDS Node
 CLASS Light EXTENDS Node
 CLASS Audio EXTENDS Node
@@ -93,29 +93,29 @@ CLASS Transform EXTENDS Node
 
 Most probably, the object will be a combination of those above:
 
-```
+```pseudocode
 CLASS MeshWithAudio EXTENDS Node 
-    Mesh mesh
-    Autio audio
+  Mesh mesh
+  Autio audio
 
 CLASS LightWithAudio EXTENDS Node 
-    Light mesh
-    Autio audio
+  Light mesh
+  Autio audio
 
 CLASS LightMeshWithAudio EXTENDS Node 
-    Light light
-    Mesh mesh
-    Autio audio
+  Light light
+  Mesh mesh
+  Autio audio
 
 CLASS CollisionWithMesh EXTENDS Node 
-    Collider collider
-    Mesh mesh
+  Collider collider
+  Mesh mesh
 // etc
 ```
 
 Or, if you language support multiple inheritance, you can do the following:
 
-```
+```pseudocode
 CLASS MeshWithAudio EXTENDS Mesh, Audio
 CLASS LightWithAudio EXTENDS Light, Audio
 CLASS LightMeshWithAudio EXTENDS Light, Mesh, Audio
@@ -123,7 +123,7 @@ CLASS CollisionWithMesh EXTENDS Collider, Mesh
 ```
 Either way, using those primary objects, you would need to make it available for the developer, so it can be used on actual objects, e.g.:
 
-```
+```pseudocode
 CLASS Enemy EXTENDS ColliderWithhMeshWithAudio
 CLASS Player EXTENDS ColliderWithhMeshWithAudio
 CLASS Firefly EXTENDS LightWithAudio 
@@ -137,12 +137,12 @@ Therefore, you would need to define $2^N$ different classes, which is not feasab
 <!-- 1. polymorphism overhead, 2. memory locality, 3. parallelizability-->
 ```cpp
 class Node : public Object {
-    struct Data {
-        Node *parent = nullptr;
-        Node *owner = nullptr;
-        HashMap<StringName, Node *> children;
-    };
-    Data data;
+  struct Data {
+    Node *parent = nullptr;
+    Node *owner = nullptr;
+    HashMap<StringName, Node *> children;
+  };
+  Data data;
 };
 ```
 
@@ -160,32 +160,32 @@ Those direct approaches are prone to create two specific code styles to fill tho
 
 In the vertical style, each object is called and sequentially updated to perform specific tasks:
 
-```
+```pseudocode
 FOR EACH enemy IN Enemies
-    CALL enemy.move
-    CALL enemy.checkCollisions
-    CALL enemy.render
-    CALL enemy.searchPlayer
-    // etc
+  enemy.move()
+  enemy.checkCollisions()
+  enemy.render()
+  enemy.searchPlayer()
+  // etc
 
 FOR EACH player IN Players
-    CALL player.move
-    CALL player.checkCollisions
-    CALL player.render
-    CALL player.hideFromEnemy
-    // etc
+  player.move()
+  player.checkCollisions()
+  player.render()
+  player.hideFromEnemy()
+  // etc
 
 FOR EACH firefly IN Fireflies
-    CALL firefly.move
-    CALL firefly.emmit
-    // etc
+  firefly.move()
+  firefly.emmit()
+  // etc
 ```
 
 A little problem emerges: in this example, enemies executes first meaning it can move and collide with the player first. But, in another simulation, if player executes first, then it can run before getting hit.
 
 Notice however, that many of those functions are performing the same task for many different objects. So in OOP, we can solve the problem by using interfaces to our advantage:
 
-```
+```pseudocode
 INTERFACE i_move IMPLEMENTS move
 INTERFACE i_render IMPLEMENTS render
 INTERFACE i_collidable IMPLEMENTS checkCollisions
@@ -196,11 +196,11 @@ CLASS Firefly IMPLEMENTS i_move
 
 // ...later
 FOR EACH movable IN movables
-    CALL (i_move) movable.move
+  (i_move) movable.move()
 FOR EACH renderable IN renderables
-    CALL (i_render) renderable.render
+  (i_render) renderable.render()
 FOR EACH collider IN collidable
-    CALL (i_collidable) collider.checkCollisions
+  (i_collidable) collider.checkCollisions()
 ```
 
 Why is this necessary? Mainly because it can happen that one operation conceptually needs to happen for all objects before another operation begins. Now both player and enemy need to make their moves before checking their collision, solving that little problem.
@@ -232,8 +232,8 @@ INITIALIZE result TO 0
 INITIALIZE A TO MATRIX(20000,20000)
 
 FOR EACH i from 0 to A.rows - 1:
-    FOR EACH j FROM 0 TO A.cols - 1:
-        ADD A[i][j] TO result
+  FOR EACH j FROM 0 TO A.cols - 1:
+    ADD A[i][j] TO result
 ```
 
 When implemented in C, this code will execute in 1.78 seconds for a square matrix A of size $20000$
@@ -242,8 +242,8 @@ INITIALIZE result TO 0
 INITIALIZE A TO MATRIX(20000,20000)
 
 FOR EACH j FROM 0 TO A.cols - 1:
-    FOR EACH i from 0 to A.rows - 1:
-        ADD A[i][j] TO result
+  FOR EACH i from 0 to A.rows - 1:
+    ADD A[i][j] TO result
 ```
 When implemented in C, this code will execute in 2.23 seconds for a square matrix A of size $20000$, a 25% increase
 
@@ -251,13 +251,13 @@ When implemented in C, this code will execute in 2.23 seconds for a square matri
 
 What is happening here? In the memory, the data for matrix A is stored in the following layout:
 
-```
+```pseudocode
 A[0][0], A[0][1], A[0][2], ..., A[0][N], A[1][0], ..., A[1][N], ..., A[N][N]
 ```
 
 When the CPU reads memory, it generally does not fetch just the 4-byte float like we requested. It fetches a cache line, typically something like 64 bytes on modern CPUs. So, when requesting:
 
-```
+```pseudocode
 A[0][0], A[0][1], A[0][2], A[0][3], A[0][4], A[0][5], A[0][6], A[0][7], A[0][8], ...
 ```
 
@@ -297,52 +297,58 @@ CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
     // move enemy ...
 ```
 
-This is a useful flexibility to have, but it's also probable that the developer will implement some repeated calculation. For example, let's us suppose a very simple firefly would use the following:
+This is a useful flexibility to have, but it's also probable that the developer will implement some repeated calculation. For example, let's us suppose a very simple firefly would use 3 members:
 
 ```pseudocode
 CLASS Firefly IMPLEMENTS i_move 
-    position = (0,0)
-    velocity = (0,0)
-    timer = 0.0
-    function getRandomNum()
+  position = (0,0)
+  velocity = (0,0)
+  intensity = 1
+  timer = 0.0
 
-    PUBLIC FUNCTION move(dt) OVERRIDE 
-        timer -= dt
+  PUBLIC FUNCTION move(dt) OVERRIDE 
+    timer -= dt
 
-        // Choose random dir
-        IF directionTimer <= 0.0f THEN
-            velocity.x = CALL getRandomNum
-            velocity.y = CALL getRandomNum
-            timer = CALL getRandomNum
+    // Choose random dir
+    IF directionTimer <= 0.0f THEN
+      velocity.x = getRandomNum()
+      velocity.y = getRandomNum()
+      timer = getRandomNum()
 
-        // Apply velocity !
-        position += velocity * dt
+    // Apply velocity !
+    position += velocity * dt
+  PUBLIC FUNCTION render() OVERRIDE
+          
 ```
-Similarly, a very simple enemy that just follows the player would also need to apply velocity:
+Similarly, a very simple enemy that just follows the player would also need to apply both position and velocity:
 
 ```pseudocode
 CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render 
-    position = (0,0)
-    velocity = (0,0)
-    speed = 1
+  position = (0,0)
+  collider = (0,0)
+  velocity = (0,0)
+  mesh = {}
+  speed = 1
+  input = (0, 0)
+  health = 100
 
-    PUBLIC FUNCTION move(float dt) OVERRIDE
-        direction = (0,0)
+  PUBLIC FUNCTION move(float dt) OVERRIDE
+    direction = (0,0)
 
-        // player dir
-        direction = CALL pathToPlayer
-        velocity = direction * speed;
-        
-        // Apply velocity !
-        position += velocity * dt;
+    // player dir
+    direction = pathToPlayer()
+    velocity = direction * speed;
+    
+    // Apply velocity !
+    position += velocity * dt;
 ```
 
 The existing of a SC loop is already known, and since they are both using the same Euler formula, the formula itself can be separated into its own system:
 
 ```pseudocode
 FUNCTION applyVelocity(positions, velocities, dt)
-    FOR EACH position, velocity IN positions, velocities
-        position += velocity * dt
+  FOR EACH position, velocity IN positions, velocities
+    position += velocity * dt
 ```
 
 Doing so means the engine is running the behavior separately from the data, and this is correct. Systems are just code blocks that transform the data, each of them are functions that represent a specific logic, like applying velocity.
@@ -351,7 +357,7 @@ However a new problem emerges: when we try to create a system like `applyVelocit
 
 The solution is to just to separate them, removing the ownership of their respective objects and instead putting in a contiguous block of memory. For example, suppose we have one firefly and one enemy:
 
-```
+```pseudocode
 velocities = [(0,0), (0,0)]
 positions = [(0,0), (0,0)]
 ```
@@ -360,30 +366,40 @@ The system now has everything to work, meaning it can now be called and therefor
 
 ```pseudocode
 CLASS Firefly IMPLEMENTS i_move 
-    column = 0
-    timer = 0.0
-    function getRandomNum()
+  column = 0
+  timer = 0.0
+  function getRandomNum()
 
-    PUBLIC FUNCTION move(dt) OVERRIDE 
-        velocity = velocities[column]
-        timer -= dt
+  PUBLIC FUNCTION move(dt) OVERRIDE 
+    velocity = velocities[column]
+    timer -= dt
 
-        // Choose random dir
-        IF directionTimer <= 0.0f THEN
-            velocity.x = CALL getRandomNum
-            velocity.y = CALL getRandomNum
-            timer = CALL getRandomNum
+    // Choose random dir
+    IF directionTimer <= 0.0f THEN
+      velocity.x = getRandomNum()
+      velocity.y = getRandomNum()
+      timer = getRandomNum()
+
 CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render 
-    column = 1
-    speed = 1
+  column = 1
+  speed = 1
+  collider = (0,0)
+  mesh = {}
+  speed = 1
+  input = (0, 0)
+  health = 100
 
-    PUBLIC FUNCTION move(float dt) OVERRIDE
-        velocity = velocities[column]
-        direction = (0,0)
+  PUBLIC FUNCTION move(float dt) OVERRIDE
+    velocity = velocities[column]
+    direction = (0,0)
 
-        // player dir
-        direction = CALL pathToPlayer
-        velocity = direction * speed;
+    // player dir
+    direction = pathToPlayer()
+    velocity = direction * speed;
+  PUBLIC FUNCTION checkCollisions OVERRIDE
+    // collide with other colliders
+  PUBLIC FUNCTION render OVERRIDE
+    // draw mesh and material
 ```
 
 
@@ -397,30 +413,30 @@ Notice, however, it sill has OOP elements on it, which is the polymorphism on `m
 
 With all this, let's see the ECS design for the engine tasks by creating different Systems:
 
-```
+```pseudocode
 // interface functions
 FOR EACH movable IN movables
-    CALL (i_move) movable.move
+  (i_move) movable.move()
 FOR EACH renderable IN renderables
-    CALL (i_render) renderable.render
+  (i_render) renderable.render()
 FOR EACH collider IN collidable
-    CALL (i_collidable) collider.checkCollisions
+  (i_collidable) collider.checkCollisions()
 
 // movement system (already seen)
 FOR EACH movementComponent, transformComponent IN movements, transforms
-    // move
+  // move
 
 // collisions system
 FOR EACH collisionComponent, movementComponent, transformComponent IN colliders, movements, transforms
-    // check collisions
+  // check collisions
 
 // render system 2d
 FOR EACH materialComponent, spriteComponent IN materials, sprites
-    // render
+  // render
 
 // render system 3d
 FOR EACH materialComponent, meshComponent IN materials, meshes
-    // render
+  // render
 // etc...
 ```
 
@@ -452,44 +468,33 @@ The process of creating them follows the same principle of an optimization fluxo
 
 ### 4.2 ECS as remedy: Components
 
-<!-- 
-With the main disadvantages of the direct approach already discussed, we can further investigate how the ECS helps us to solve the main problem.
-
-There isn't a bible of what makes a good ECS, because its purpose is to help with game development. So any explanation said here, although common when search through blogs and Q&A websites, are not strictly speaking *rules*. What is certain, is that it is performant enough to withstand different robustness tests, which are shown in the results section.
-
-That being said, given the nature of the examples, it would be safe to assume that the implemented solution also has the capacity to withstand less robust, more common games, which is the case for most games on the market.
-Like any other application, games have objects, like enemies, non-playable-characters, props, light sources, inventories, terrain, fluids, etc. 
-
-The first step is to turn a complex object into many small structs, such as: Mesh, Audio, Sprite, Transforms, Velocity, Angular Velocity, Collision Box, Particles, Camera, etc. 
-
-Those structures are called components, and they by themselves are just data without behavior. The idea is that they don't contain logic nor dependencies because the former is directive of the Systems and the latter is directive of the Archetypes.
--->
-
-When expanding an object, we can expand its methods by polymorphism. However, the same isn't true for its data definition, which is always entirely copied to the derived class. Meaning that, the changes made to firefly and enemy examples are just different models of basic ownership: which entirely move members into dedicated data structures, completly orthogonal to OOP.  
+When expanding an object, we can expand its methods by polymorphism. However, the same isn't true for its data definition, which is always entirely copied to the derived class. Meaning that, the changes made to firefly and enemy examples are just different models of basic ownership: our model entirely move members into dedicated data structures, and this decision completly orthogonal to OOP.
 
 Previously there were only 2 objects both with 1 set o components:
-```
+```pseudocode
 velocities = [(0,0), (0,0)]
 positions = [(0,0), (0,0)]
 ```
 However, our example was too shallow, it didn't show what to do when clases with different components are at play. 
 
-To make this concrete, let's go back to the three classes that were left over from the OOP hierarchy: a `Player`, a `Lamp` and a `Wall`. Arbitrarly written the OOP way, they look like this:
+To make this concrete, let's go back to the three classes that were left over from the OOP hierarchy: a `Enemy`, a `Firefly` and a `Wall`. Arbitrarly written the OOP way, they look like this:
 
 ```pseudocode
-CLASS Player IMPLEMENTS i_move, i_collidable, i_render
+CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
   position = (0,0)
   velocity = (0,0)
   collider = (0,0)
   input = (0, 0)
+  speed = 1
   health = 100
+  mesh = {}
 
   PUBLIC FUNCTION move OVERRIDE
-      // walk using input
+    // walk following player
   PUBLIC FUNCTION checkCollisions OVERRIDE
-      // collide with walls
+    // collide with other colliders
   PUBLIC FUNCTION render OVERRIDE
-      // draw sprite
+    // draw mesh and material
 
 CLASS Lamp EXTENDS i_move, i_render
   position = (0,0)
@@ -497,30 +502,29 @@ CLASS Lamp EXTENDS i_move, i_render
   isOn = true
 
   PUBLIC FUNCTION render OVERRIDE
-      // draw mesh + light
+    // draw mesh + light
 
 CLASS Wall EXTENDS i_render, i_collidable
   position = (0,0)
+  mesh = {}
   collider = (0,0)
 
   PUBLIC FUNCTION checkCollisions OVERRIDE
-      // block the player and other collidables
+    // block the player and other collidables
   PUBLIC FUNCTION render OVERRIDE
-      // draw mesh and material
+    // draw mesh and material
 ```
 
 
 We just need to move the ownership `position`, `velocity` and `collider` would result in 3 components. If 300 were initialized in 3D space, they would generate the following matrix:
 
-| Component              | $player_0$ | $\cdots$ | $player_{99}$ | $firefly_0$ | $\cdots$ | $firefly_{99}$ | $wall_0$  | $\cdots$ | $wall_{99}$ |
+| Component              | $enemy_0$ | $\cdots$ | $enemy_{99}$ | $firefly_0$ | $\cdots$ | $firefly_{99}$ | $wall_0$  | $\cdots$ | $wall_{99}$ |
 | ---------------------- | ---------- | -------- | ------------- | ----------- | -------- | -------------- | --------- | -------- | ----------- |
 | **TransformComponent** | $(0,0,0)$  | $\cdots$ | $(0,0,0)$     | $(0,0,0)$   | $\cdots$ | $(0,0,0)$      | $(0,0,0)$ | $\cdots$ | $(0,0,0)$   |
 | **ColliderComponent**  | $(0,0,0)$  | $\cdots$ | $(0,0,0)$     | —           | $\cdots$ | —              | $(0,0,0)$ | $\cdots$ | $(0,0,0)$   |
 | **VelocityComponent**  | $(0,0,0)$  | $\cdots$ | $(0,0,0)$     | $(0,0,0)$   | $\cdots$ | $(0,0,0)$      | —         | $\cdots$ | —           |
 
-There are two main problems. The first is that representing components as a matrix indexed by entity forces each component array to reserve space for every entity, even when most entities do not possess that component. This creates sparse data structures: iterating over a component requires either checking for missing components or traversing unused entries, while memory is also consumed by slots that contain no component at all.
-
-The second, and perhaps most obvious, is that even if never used, it still would consume a lot of memory. 
+There are two main problems. The first is that, representing components as a matrix indexed by entity obligates each component array to reserve space for every entity, even when most entities do not possess that component. This creates sparse data structures: iterating over a component requires either checking for missing components or traversing unused entries, while memory is also consumed by slots that contain no component at all.
 
 "How to solve" this problem is the question for the next 3 chapters and the core of ECS development and discussions. But first, the natural first step is to allow systems to select sets of components.
 
@@ -551,7 +555,7 @@ CLASS MaterialComponent     // { "Texture.glsl", 0xFFFFFF }, shader, color
 
 Therefore, quering the correct component is now simply a matter of using bitmask `OR` operator, allowing us to properly define the vectors `movements`, `transforms`, `sprites`, etc from the last example:
 
-```
+```pseudocode
 FUNCTION query(Components...)
   bitMask = 0
   FOR EACH Component IN Components
@@ -560,16 +564,43 @@ FUNCTION query(Components...)
   selectedVectors = {}
   FOR EACH vector IN componentVectors
     IF vector.mask & bitMask != bitMask THEN
-       selectedVectors.insert(vector)
+       selectedVectors = {.selectedVectors, .vector }
   RETURN selectedVectors
 
 
 // ... later in the systems section:
-movements, positions = CALL query(TransformComponent.id, VelocityComponent.id)
+movements, positions = query(TransformComponent.id, VelocityComponent.id)
 FOR EACH movementComponent, transformComponent IN movements, positions
     // move
 ```
 
+The query function now allows us to filter specific components that we want. `componentVectors` isn't defined yet but that is on purpose. For now, we also need to worry about the accessing specific members. For example, script outside the SC need to be able to access their specific component:
+
+```
+CLASS Firefly IMPLEMENTS i_move 
+  column = 0
+  timer = 0.0
+  function getRandomNum()
+
+  PUBLIC FUNCTION move(dt) OVERRIDE 
+    velocity = velocities[column]
+    // Choose random dir
+    IF directionTimer <= 0.0f THEN
+      velocity.x = getRandomNum()
+      velocity.y = getRandomNum()
+      timer = getRandomNum()
+CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render 
+  column = 1
+  speed = 1
+
+  PUBLIC FUNCTION move(float dt) OVERRIDE
+    velocity = velocities[column]
+    direction = (0,0)
+
+    // player dir
+    direction = pathToPlayer()
+    velocity = direction * speed;
+```
 
 <!-- maybe an image here? -->
 
