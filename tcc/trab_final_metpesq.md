@@ -593,64 +593,92 @@ FOR EACH movementComponent, transformComponent IN movements, positions
     // move
 ```
 
-The query function now allows us to filter specific components that we want. `componentVectors` isn't defined yet but that is on purpose. For now, we also need to worry about the accessing specific members. For example, script outside the SC need to be able to access their specific component:
+The query function now allows us to filter specific components that we want. `componentVectors` isn't defined yet but that is on purpose. For now, we also need to worry about the accessing specific members without using `query`.
+
 
 <!-- maybe an image here? -->
 
+
 ### 4.3 ECS as remedy: Entity
 
-There are different views for what constitutes an entity or what it's supposed to represent. For example, if you search on Wikipedia for ECS, they will define "Entity" as a general-purpose object, id est, a game object. Some articles at medium also define that way. In contrast, the Entity Systems Wiki defines as a container which components can be added. 
-I, however, decided to go with the definition used by Unity Engine: Which states that entities are just indices which represent objects IDs. On C++ terms, it means that they are integers.
+Why? Because not everything can be accessed and processed using systems and queries, highly specific functions like firefly's random movement and enemy's following the player still need to be processed in a OC loop. Or at least, we don't know if they will become their own systems, which means a good architecture will allow both options to the developer.
 
-The reason to prefer this definition it's because it is simpler and because it works within Unity.
+Previously, we accessed the component in a OC way by using `velocity = velocities[column]`, however, there is no guarantee that `column` will always be the correct memory address. Specificlly because we might need to change order, remove and break memory into different chunks when implementing an ECS.
+
+One solution is to just create a second new reference table that maps all real objects into their respective columns. The underlying ECS registry will them take care of guaranteing a correct map. Each object will have its own identification, which we call "entity".
+
+"Entity" has a really simple definition: it's an integer
+
+| Entity | 0 | 1 | 2 | 3 | $\cdots$ |
+|--------|-----|-----|-----|-----|-----|
+| Column | 12 | 3 | 8 | 15 |$\cdots$|
+
+If we implement this into an map, we just need to make a two redirections to access the underlying data: 
+
+```
+FUNCTION get(component, entity)
+  CONST column = map[entity] // first redirection
+  RETURN component[column] // second redirection
+```
+
+As a benefit, we also have an immuatable, reserved identification that can be used on any object, which allow for easy debugging. While the ECS can manipulate any column it want behind the scenes while keeping the entities intact.
+
+There are different views for what constitutes an entity or what it's supposed to represent. For example, if you search on Wikipedia for ECS, they will define "Entity" as a general-purpose object, id est, a game object. Some articles at medium also define that way. In contrast, the Entity Systems Wiki defines as a container which components can be added. 
+I, however, decided to go with the definition used by Unity Engine: Which states that entities are just indices which represent objects IDs. 
+
+The reason to prefer this definition it's because it's closer to the usual implementations which uses as an ID.
 
 ![Figure2](images/ECS_arbitrary.png)
 
 *Figure 2: Arbitrary components from arbitrary entities filled with arbitrary data in a random order*
 
-As previously said, the data is actually stored inside data structures like vectors, maps, unordered maps, etc. Therefore, your objects can still be accessed using the entity ID.
+As you can guess from the definitons of components, entities and columns, the insides of ECSs is usually stored inside flexible data structures like vectors, maps, unordered maps, etc. The engine need that flexibility to maximize the contiguous memory while avoiding creating unused memory.
 
-For example, the NPC object can still be fully accessed by searching for its components (Velocity, Transform and Sprite) if you search for the index $ID = 1$:
-
-```c
-call getComponent velocity at index 1 // { (0.2,0.3,0.0) }
-call getComponent transform at index 1 // { (0.0,0.0,0.0) }
-call getComponent sprite at index 1 // { (0.1,0.1), (1.0,1.0,1.0,1.0), 1.0 }
-```
-
-Hence, what we now have is an extra layer of complexity inside our previous simple object. To call the entire object we would need to get every single component.
+To achieve this, it is possible and create a separate layer, usually called "registry", which will own all the runtime data from the engine. As a didatic strategy, it can be compared to application programming interfaces (APIs). 
 
 
 ### 4.4 ECS as remedy: Registry
 
-In programming, a wrapper is a program or code that surrounds other program components, providing an interface for easier interaction with the wrapped functionality.
 
-Data structures have different implementations, but they need general functions to work with components and entities. 
+An API is a set of rules and protocols that allows different softwares to communicate data between themselves automatically, usually into a common database but also largely used in multi services setups. In the same way the ECS registry is an "API" that allows the engine to communicate with the ECS. Except that they are almost always built in a static library once for performance reasons.
 
-Going a little deeper inside the code, the registry serves as a general wrapper between the system functionality and data structures. They are responsible for:
+Two important routes were already shown. The first is the `query` function, which allows the engine to access contiguous memory. The second is the `get(component,entity)` function, which allows scripts like functions to occasionally access specific data from a specific entity. Both can be used as view-only or allow modifications, e.g.: C++ and rust allow const and mut logic respectivelly.
 
+As previously stated, the registry can be responsible for:
+- Retrieve the iterator, which allow us to query components in contiguous memory
+- Get specific component for a given ID, which allows OC scripts to function
+
+Going a little deeper inside the code, it can also do the following:
 - Create new entity IDs and recycle destroyed IDs.
-- Retrieve the iterator which allow us to loop between components of the same type
-- Emplace new components for a given ID
-- Remove components for a given ID
+- Batch emplace new components for new IDs
+- Remove IDs and their indexed components
 - Check if component exist for a given ID
-- Get specific component for a given ID
-- Allow us to create a new data structure for a given component, preferably at compile time
-- Allow us to remove a new data structure for a given component, preferably at compile time
+- Rarely, add new components to existing IDs
+- Very rarely, remove components from existing IDs
 
-Registries are hard because they will be accessed every time, making them very performance critical. Usually requiring different template specific code to be able to run as clean as possible, making the developer interaction with the registry feels as if it isn't even there.
+Registries are hard to program because they are accessed almost every time, making them very performance critical. Usually requiring different template specific code to be able to run as clean as possible, making the developer interaction with the registry feels as if it isn't even there.
 
-### 4.5 ECS as remedy: Archetypes
+### 4.5 ECS as remedy: Archetypes Registries
 
-With the registry being built we can now start to talk about Archetypes. Archetypes are sets of components that are joined together. They represent the dependency between components. 
+With the registry being built we can now start to talk about Archetypes. 
 
-For example, if we want to loop between components of the velocity type, so we can update the Transform component, we obviously need them both. One possible solution would be to search for the second component:
+The problem is, we need alternatives against the use of a single matrix, but notice that when we had only `position` and `velocity`, our matrix was perfectly used. Why? Because both components were the only ones that existed and both classes, Firefly and Enemy, only used those components. However, when we added more components to the engine, that was no longer the case.
 
-```c
-for each Velocity Component
-    search Transform Component
-    Transform = Transform + Velocity * deltaTime
+The answer seems simple then: for entities that use the same components, we can create a dedicated, smaller matrices, that doesn't have any unused memory. If we have $N$ classes in the game, and every class can use a different set of components, it means that we have a maximum of $N$ matrices.
+
+Games however, have an extensive demand for different classes. Meaning that at some point, some of them will inevitably use the same set, which in turn, will make the registry use less than $N$ matrices.
+
+For example, the developer might not need to create different functions to deal with environment rocks, walls, trees and power poles. They can create this scenery with only transform, material, collision and meshes components.
+
+That smaller and 100% filled matrix is called "archetype". It allows objects with the same set of components in the same matrix:
+
 ```
+
+```
+
+Now its just a matter of completing every responsability with specific function
+
+
 However, the search algorithm is costly.
 
 ![Figure4](images/temp_03.png)
