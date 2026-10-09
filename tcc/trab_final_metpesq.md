@@ -385,12 +385,12 @@ The system now has everything to work, meaning it can now be called and therefor
 
 ```pseudocode
 CLASS Firefly IMPLEMENTS i_move 
-  column = 0
+  row = 0
   intensity = 1
   timer = 0.0
 
   PUBLIC FUNCTION move(dt) OVERRIDE 
-    velocity = velocities[column] // now retrieving from outside ownership
+    velocity = velocities[row] // now retrieving from outside ownership
     timer -= dt
 
     // Choose random dir
@@ -402,14 +402,14 @@ CLASS Firefly IMPLEMENTS i_move
 
   // ... rest of the class
 CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render 
-  column = 1
+  row = 1
   collider = (1,1)
   speed = 1
   sprite = { TYPE::SQUARE, (1,1) }
   material = { "Texture.glsl", 0xFFFFFF }
 
   PUBLIC FUNCTION move(float dt) OVERRIDE
-    velocity = velocities[column] // now retrieving from outside ownership
+    velocity = velocities[row] // now retrieving from outside ownership
     direction = (0,0)
 
     // player dir
@@ -500,7 +500,7 @@ We didn't touched the other members until now and our objective is to move the m
 
 ```pseudocode
 CLASS Enemy IMPLEMENTS i_move
-  column = 1
+  row = 1
   speed = 1
   sprite = {}
 
@@ -510,7 +510,7 @@ CLASS Enemy IMPLEMENTS i_move
   // ... rest of the class
 
 CLASS Firefly IMPLEMENTS i_move
-  column = 0
+  row = 0
   timer = 0.0
 
   PUBLIC FUNCTION move(dt) OVERRIDE 
@@ -519,7 +519,7 @@ CLASS Firefly IMPLEMENTS i_move
   // ... rest of the class
 
 CLASS Wall
-  column = 2
+  row = 2
 
 
 velocities = [(0,0), (0,0), NULL]
@@ -603,25 +603,26 @@ The query function now allows us to filter specific components that we want. `co
 
 Why? Because not everything can be accessed and processed using systems and queries, highly specific functions like firefly's random movement and enemy's following the player still need to be processed in a OC loop. Or at least, we don't know if they will become their own systems, which means a good architecture will allow both options to the developer.
 
-Previously, we accessed the component in a OC way by using `velocity = velocities[column]`, however, there is no guarantee that `column` will always be the correct memory address. Specificlly because we might need to change order, remove and break memory into different chunks when implementing an ECS.
+Previously, we accessed the component in a OC way by using `velocity = velocities[row]`, however, there is no guarantee that `row` will always be the correct memory address. Specificlly because we might need to change order, remove and break memory into different chunks when implementing an ECS.
 
-One solution is to just create a second new reference table that maps all real objects into their respective columns. The underlying ECS registry will them take care of guaranteing a correct map. Each object will have its own identification, which we call "entity".
+One solution is to just create a second new reference table that maps all real objects into their respective rows. The underlying ECS registry will them take care of guaranteing a correct map. Each object will have its own identification, which we call "entity".
 
 "Entity" has a really simple definition: it's an integer
 
 | Entity | 0 | 1 | 2 | 3 | $\cdots$ |
 |--------|-----|-----|-----|-----|-----|
-| Column | 12 | 3 | 8 | 15 |$\cdots$|
+| Row | 12 | 3 | 8 | 15 |$\cdots$|
 
 If we implement this into an map, we just need to make a two redirections to access the underlying data: 
 
 ```
+// NOTE: not the end function
 FUNCTION get(component, entity)
-  CONST column = map[entity] // first redirection
-  RETURN component[column] // second redirection
+  CONST row = map[entity] // first redirection
+  RETURN component[row] // second redirection
 ```
 
-As a benefit, we also have an immuatable, reserved identification that can be used on any object, which allow for easy debugging. While the ECS can manipulate any column it want behind the scenes while keeping the entities intact.
+As a benefit, we also have an immuatable, reserved identification that can be used on any object, which allow for easy debugging. While the ECS can manipulate any row it wants behind the scenes while keeping the entities intact.
 
 There are different views for what constitutes an entity or what it's supposed to represent. For example, if you search on Wikipedia for ECS, they will define "Entity" as a general-purpose object, id est, a game object. Some articles at medium also define that way. In contrast, the Entity Systems Wiki defines as a container which components can be added. 
 I, however, decided to go with the definition used by Unity Engine: Which states that entities are just indices which represent objects IDs. 
@@ -632,7 +633,7 @@ The reason to prefer this definition it's because it's closer to the usual imple
 
 *Figure 2: Arbitrary components from arbitrary entities filled with arbitrary data in a random order*
 
-As you can guess from the definitons of components, entities and columns, the insides of ECSs is usually stored inside flexible data structures like vectors, maps, unordered maps, etc. The engine need that flexibility to maximize the contiguous memory while avoiding creating unused memory.
+As you can guess from the definitons of components, entities and rows, the insides of ECSs is usually stored inside flexible data structures like vectors, maps, unordered maps, etc. The engine need that flexibility to maximize the contiguous memory while avoiding creating unused memory.
 
 To achieve this, it is possible and create a separate layer, usually called "registry", which will own all the runtime data from the engine. As a didatic strategy, it can be compared to application programming interfaces (APIs). 
 
@@ -676,14 +677,20 @@ This smaller and 100% filled matrix is called "archetype". It allows objects wit
 CLASS Archetype
     componentMap : MAP<ComponentType, Array>  // one SoA array per component type, equivalent to a matrix
     entities     : ARRAY<Entity>              // row ids, kept in sync with the arrays above
-    removers     : ARRAY<Function(Column)>    // swap-and-pop routine for each component type
+    removers     : ARRAY<Function(Row)>    // swap-and-pop routine for each component type
 ```
 
 <!-- put a visual example of an archetype here -->
 
-Why `removers`? ECS are performance tools, so most likely they will be implement in strong typed languages. The problem is that creating an array inside componentMap will result in type erasure. Meaning the program will lose the original context it used to construct it. 
+Why `removers`? ECS are performance tools, so most likely they will be implement in strong typed languages. The problem is that creating an array inside componentMap will result in type erasure. Meaning the program will lose the original context it used to construct it. In c++, it happens when you use `(void *)`
 
-This is fine for reading and modifying since their underlying function will specify which component they want. But the same isn't true for removal since it will either remove a specific entity or the entire archetype, without telling context. 
+This is fine for reading and modifying since the functions for that will always specify which component they want. But the same isn't true for removal functions since they will either remove a specific entity or the entire archetype, without mentioning context, e.g.:
+
+```
+registry.getComponent(ComponentType, entity)
+registry.query(ComponentType1, ComponentType2, ..., ComponentTypeN)
+registry.remove(entity) // developer doesn't specify component
+```
 
 The most straightforward solution is to store the type, and therefore the memory size, of the component you want to delete, into a function that will do just that for you. 
 
@@ -697,132 +704,77 @@ FUNCTION Archetype.createComponent(componentType)
 
     array = NEW Array()
     componentMap[componentType] = array
-    removers.APPEND(FUNCTION(column) = removeFromComponent(componentType, column))
+    removers.APPEND(FUNCTION(row) = removeFromComponent(componentType, row))
     RETURN array
 ```
 
 Insertion usually goes in the same way as any vector, after retrieving the correct vector, you append the necessary components.
 
 ```
-// Writes one component at the end of its array and returns the row it landed on
-FUNCTION Archetype.pushComponent(componentType, componentValue)
+FUNCTION Archetype.push(componentType, componentValue)
     array = createComponent(componentType)
-    column = array.size          // the row is the current length, taken before the append
+    row = array.size // the row is the current length, taken before the append
     array.append(componentValue)
-    RETURN column
+    RETURN row
 
-// Batch push used when an entity is spawned, returns the row of its last component
-FUNCTION Archetype.pushComponents(entity, components)
+// NOTE: you can make this function public, while keeping individuals push private
+FUNCTION Archetype.push(entity, components)
     FOR EACH (componentType, componentValue) IN components DO
-        column = pushComponent(componentType, componentValue)
+        row = pushComponent(componentType, componentValue)
     entities.append(entity)
-    RETURN column
+    RETURN row
 ```
 
-Similarly, you can get any component contained inside the archetype by retrieving its vector first:
+Similarly, you can get any individual component inside the archetype by retrieving its vector first:
 
 ```
 FUNCTION Archetype.getComponent(componentType)
-    IF NOT componentMap CONTAINS componentType THEN
-        FATAL("Missing component type: " + componentType)
+    ASSERT(componentMap CONTAINS componentType, "Missing component type: " + componentType)
     RETURN componentMap[componentType]
 
 ```
-Then using that vector normally:
+And later use it to retreive the row:
 ```
 // Raw access to one component of one row, with the bounds check the engine needs
-FUNCTION Archetype.fetchComponent(componentType, column)
+FUNCTION Archetype.fetchComponent(componentType, row)
     array = getComponent(componentType)
-    ASSERT column < array.size
-    RETURN array[column]
+    ASSERT row < array.size
+    RETURN array[row]
 ```
 As an added bonus, you can also retrieve any set of components from the entity at once using a tuple, even the whole row at once: the tuple of references the script can use if more than one object's components are in need. This shouldn't be used in systems.
 
 ```
-FUNCTION Archetype.extractColumn(componentTypes, column)
+FUNCTION Archetype.extractRow(componentTypes, row)
     row = NEW Tuple()
     FOR EACH componentType IN componentTypes DO
-        row.append(fetchComponent(componentType, column))
+        row.append(fetchComponent(componentType, row))
     RETURN row
 ```
 
 There a many ways to remove a specific compoennt, here is the strategy of swaping with the last element, then decreasing the vector size.
 ```
-FUNCTION Archetype.removeFromComponent(componentType, column)
+FUNCTION Archetype.removeFromComponent(componentType, row)
     array = componentMap[componentType]
-    SWAP array[column], array[array.size - 1]
+    SWAP array[row], array[array.size - 1]
     array.pop()
 ```
 
 This function is used here to delete an entire entity, alongside all its components. 
-Since the column has changed, you need to update the entity-column map from section 4.3, hence the return
+Since the row has changed, you need to update the entity-row map from section 4.3, hence the return
 
 ```
-FUNCTION Archetype.remove(column)
+FUNCTION Archetype.remove(row)
     swappedEntity = entities[entities.size - 1]
 
     FOR EACH remover IN removers DO
-        removeFromComponent(column)
+        removeFromComponent(row)
 
-    SWAP entities[column], entities[entities.size - 1]
+    SWAP entities[row], entities[entities.size - 1]
     entities.pop()
     RETURN swappedEntity
 ```
 
 
-However, the search algorithm is costly.
-
-![Figure4](images/temp_03.png)
-
-*Figure 4: Example of common components inside the registry, each square is an array*
-
-So a way to avoid this is to group the necessary components per system. If only the transform and the velocity system were in the same place in memory, they could be automatically brought together and be processed. 
-
-That's the job of the Archetypes. They work inside the registry and allow it to join both structs together. In the example, the Movement System will request both, and the registry will send an iterator with elements containing both.
-
-This iterator will come from a special data structure that exists only for that purpose. Now, whenever an entity has both components, the registry can choose to place them inside it.
-
-Those special data structures are the Archetypes. Internally they are just Structure of Arrays (SoA), this ensures a contiguous memory access for all components within the same archetype.
-
-
-![Figure5](images/temp_04.png)
-
-*Figure 5: Example of common components inside the registry after the Movement System*
-
-What is happening here? The data for a specific System is being glued so that we can quickly iterate into all data that fits our specific component requirements.
-
-With this we don't need to search for the necessary components. However, this also introduces some drawbacks.
-
-![Figure6](images/temp_05.png)
-
-*Figure 6: All possible combinations of components*
-
-Now, every time we want to just process one component, for example, the transform component, we must look for every Archetype that has said component and loop inside them. 
-
-The maximum possible number of archetypes is $2^N -1$, where $N$ is the number of components. But that is a bit of an exaggeration, and a number this high would actually compromise the loop instead of help. 
-
-In truth, the number of archetypes will depend on the number of systems that require them. Since they help the systems to perform better, if no behavior needs it, then it shouldn't exist.
-
-For our problem, there is only two types of archetypes: 
-
-- Archetype 1: Transform Component, Velocity Component
-- Archetype 2: Transform Component, Velocity Component, Sprite Component
-
-Whenever the Movement System needs to update, it will call both archetypes.
-
-However, whenever the Render System needs to update, it can call only Archetype 2 and receive the Sprite and Transform component arrays.
-
-You all that being said, let's go back to the previous Movement System:
-
-```c
-archetype = getArchetype(TransformComponent, VelocityComponent)
-for each entity in archetype:
-    entity.transform = entity.transform + (entity.velocity * deltaTime)
-```
-
-With this, we successfully iterate both components without an additional search overhead.
-
-Notice that, for the Movement System, this design isn't free, because now its `for` loop will be effectively cut into two for it to correctly iterate both arrays.
 
 ### 4.6 Explaining the ECS method: Scripting
 
