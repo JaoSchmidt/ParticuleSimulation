@@ -238,8 +238,8 @@ However, when iterating in OOP, you are looping in the data of the entire object
 It is possible to clearly see the cost by doing a simple test. E.g, writing a small loop to sum all elements of a matrix "A":
 
 ```pseudocode
-INITIALIZE result TO 0
-INITIALIZE A TO MATRIX(20000,20000)
+result = 0
+A = Matrix(20000,20000)
 
 FOR EACH i from 0 to A.rows - 1:
   FOR EACH j FROM 0 TO A.cols - 1:
@@ -248,8 +248,8 @@ FOR EACH i from 0 to A.rows - 1:
 
 When implemented in C, this code will execute in 1.78 seconds for a square matrix A of size $20000$
 ```pseudocode
-INITIALIZE result TO 0
-INITIALIZE A TO MATRIX(20000,20000)
+result = 0
+A = Matrix(20000,20000)
 
 FOR EACH j FROM 0 TO A.cols - 1:
   FOR EACH i from 0 to A.rows - 1:
@@ -318,7 +318,7 @@ CLASS Firefly IMPLEMENTS i_move, i_render
   intensity = 1
   timer = 0.0
 
-  PUBLIC FUNCTION move(dt) OVERRIDE 
+  FUNCTION move(dt) OVERRIDE 
     timer -= dt
 
     // Choose random dir
@@ -330,7 +330,7 @@ CLASS Firefly IMPLEMENTS i_move, i_render
     // Apply velocity !
     position += velocity * dt
 
-  PUBLIC FUNCTION render OVERRIDE
+  FUNCTION render OVERRIDE
     // draw light
   // ... rest of the class
 ```
@@ -345,7 +345,7 @@ CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
   sprite = { TYPE::SQUARE, (1,1) }
   material = { "Texture.glsl", 0xFFFFFF }
 
-  PUBLIC FUNCTION move(float dt) OVERRIDE
+  FUNCTION move(float dt) OVERRIDE
     direction = (0,0)
 
     // player dir
@@ -355,9 +355,9 @@ CLASS Enemy IMPLEMENTS i_move, i_collidable, i_render
     // Apply velocity !
     position += velocity * dt;
 
-  PUBLIC FUNCTION checkCollisions OVERRIDE
+  FUNCTION checkCollisions OVERRIDE
     // collide with other colliders
-  PUBLIC FUNCTION render OVERRIDE
+  FUNCTION render OVERRIDE
     // draw sprite and material
   // ... rest of the class
 ```
@@ -366,7 +366,7 @@ The existance of a SC loop is already known by us. Since they are both using the
 
 ```pseudocode
 FUNCTION applyVelocity(positions, velocities, dt)
-  FOR EACH position, velocity IN positions, velocities
+  FOR EACH (position, velocity) IN ZIP(positions, velocities)
     position += velocity * dt
 ```
 
@@ -582,8 +582,8 @@ FUNCTION query(Components...)
   
   selectedVectors = {}
   FOR EACH vector IN componentVectors
-    IF vector.mask & bitMask != bitMask THEN
-       selectedVectors = {.selectedVectors, .vector }
+    IF vector.mask & bitMask == bitMask THEN
+       selectedVectors = selectedVectors + [vector]
   RETURN selectedVectors
 
 
@@ -670,13 +670,104 @@ Games however, have an extensive demand for different classes. Meaning that at s
 
 For example, the developer might not need to create different functions to deal with environment rocks, walls, trees and power poles. They can create this scenery with only transform, material, collision and meshes components.
 
-That smaller and 100% filled matrix is called "archetype". It allows objects with the same set of components in the same matrix:
+This smaller and 100% filled matrix is called "archetype". It allows objects with the same set of components in the same matrix:
 
 ```
-
+CLASS Archetype
+    componentMap : MAP<ComponentType, Array>  // one SoA array per component type, equivalent to a matrix
+    entities     : ARRAY<Entity>              // row ids, kept in sync with the arrays above
+    removers     : ARRAY<Function(Column)>    // swap-and-pop routine for each component type
 ```
 
-Now its just a matter of completing every responsability with specific function
+<!-- put a visual example of an archetype here -->
+
+Why `removers`? ECS are performance tools, so most likely they will be implement in strong typed languages. The problem is that creating an array inside componentMap will result in type erasure. Meaning the program will lose the original context it used to construct it. 
+
+This is fine for reading and modifying since their underlying function will specify which component they want. But the same isn't true for removal since it will either remove a specific entity or the entire archetype, without telling context. 
+
+The most straightforward solution is to store the type, and therefore the memory size, of the component you want to delete, into a function that will do just that for you. 
+
+Now its just a matter of completing the ohter responsabilities with specific functions:
+
+```
+// Finds the array of a component type, creating it (and its remover) on first use
+FUNCTION Archetype.createComponent(componentType)
+    IF componentMap CONTAINS componentType THEN
+        RETURN componentMap[componentType]
+
+    array = NEW Array()
+    componentMap[componentType] = array
+    removers.APPEND(FUNCTION(column) = removeFromComponent(componentType, column))
+    RETURN array
+```
+
+Insertion usually goes in the same way as any vector, after retrieving the correct vector, you append the necessary components.
+
+```
+// Writes one component at the end of its array and returns the row it landed on
+FUNCTION Archetype.pushComponent(componentType, componentValue)
+    array = createComponent(componentType)
+    column = array.size          // the row is the current length, taken before the append
+    array.append(componentValue)
+    RETURN column
+
+// Batch push used when an entity is spawned, returns the row of its last component
+FUNCTION Archetype.pushComponents(entity, components)
+    FOR EACH (componentType, componentValue) IN components DO
+        column = pushComponent(componentType, componentValue)
+    entities.append(entity)
+    RETURN column
+```
+
+Similarly, you can get any component contained inside the archetype by retrieving its vector first:
+
+```
+FUNCTION Archetype.getComponent(componentType)
+    IF NOT componentMap CONTAINS componentType THEN
+        FATAL("Missing component type: " + componentType)
+    RETURN componentMap[componentType]
+
+```
+Then using that vector normally:
+```
+// Raw access to one component of one row, with the bounds check the engine needs
+FUNCTION Archetype.fetchComponent(componentType, column)
+    array = getComponent(componentType)
+    ASSERT column < array.size
+    RETURN array[column]
+```
+As an added bonus, you can also retrieve any set of components from the entity at once using a tuple, even the whole row at once: the tuple of references the script can use if more than one object's components are in need. This shouldn't be used in systems.
+
+```
+FUNCTION Archetype.extractColumn(componentTypes, column)
+    row = NEW Tuple()
+    FOR EACH componentType IN componentTypes DO
+        row.append(fetchComponent(componentType, column))
+    RETURN row
+```
+
+There a many ways to remove a specific compoennt, here is the strategy of swaping with the last element, then decreasing the vector size.
+```
+FUNCTION Archetype.removeFromComponent(componentType, column)
+    array = componentMap[componentType]
+    SWAP array[column], array[array.size - 1]
+    array.pop()
+```
+
+This function is used here to delete an entire entity, alongside all its components. 
+Since the column has changed, you need to update the entity-column map from section 4.3, hence the return
+
+```
+FUNCTION Archetype.remove(column)
+    swappedEntity = entities[entities.size - 1]
+
+    FOR EACH remover IN removers DO
+        removeFromComponent(column)
+
+    SWAP entities[column], entities[entities.size - 1]
+    entities.pop()
+    RETURN swappedEntity
+```
 
 
 However, the search algorithm is costly.
