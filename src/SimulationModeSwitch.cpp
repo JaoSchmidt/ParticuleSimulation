@@ -140,7 +140,7 @@ SimulationModeSwitch::buildSimulation(SimulationMode mode)
                         : static_cast<int>(Simulation::asteroidAmount);
   switch (mode) {
   case SimulationMode::Ecs:
-    return ParticleSimulationECS::createScriptScene(m_scene, m_assets, count);
+    return ParticleSimulationArchetype::createScriptScene(m_scene, m_assets, count);
   case SimulationMode::Object:
   default:
     return ParticleSimulationObj::createScriptScene(m_scene, m_assets, count);

@@ -121,14 +121,14 @@ public:
   const static unsigned asteroidAmount = Simulation::asteroidAmount;
 };
 
-class ParticleSimulationECS : public ParticleSimulationBase
+class ParticleSimulationArchetype : public ParticleSimulationBase
 {
 
 public:
-  static ParticleSimulationECS &
+  static ParticleSimulationArchetype &
   createScriptScene(pain::Scene &scene, const SimulationAssets &assets,
                     int startAsteroidCount);
-  ParticleSimulationECS(reg::Entity entity, pain::Scene &scene,
+  ParticleSimulationArchetype(reg::Entity entity, pain::Scene &scene,
                         reg::Entity orthocamera,
                         std::vector<reg::Entity> &&asteroid,
                         std::vector<reg::Entity> &&walls, reg::Entity mp,

@@ -9,7 +9,7 @@
 #include <pain.h>
 #include <painless.h>
 
-ParticleSimulationECS &ParticleSimulationECS::createScriptScene(
+ParticleSimulationArchetype &ParticleSimulationArchetype::createScriptScene(
     pain::Scene &scene, const SimulationAssets &assets, int startAsteroidCount)
 {
   // Only the walls are built here, as entities. The camera, the mouse pointer,
@@ -25,8 +25,8 @@ ParticleSimulationECS &ParticleSimulationECS::createScriptScene(
 
   std::vector<reg::Entity> asteroids;
 
-  ParticleSimulationECS &script =
-      pain::Scene::emplaceScript<ParticleSimulationECS>(
+  ParticleSimulationArchetype &script =
+      pain::Scene::emplaceScript<ParticleSimulationArchetype>(
           scene.getEntity(), scene, assets.m_camera, std::move(asteroids),
           std::move(walls), assets.m_mousePointer,
           // The assets are const, so the vector has to be copied rather than
@@ -37,7 +37,7 @@ ParticleSimulationECS &ParticleSimulationECS::createScriptScene(
   return script;
 }
 
-ParticleSimulationECS::ParticleSimulationECS(
+ParticleSimulationArchetype::ParticleSimulationArchetype(
     reg::Entity entity, pain::Scene &scene, reg::Entity orthocamera,
     std::vector<reg::Entity> &&asteroid, std::vector<reg::Entity> &&walls,
     reg::Entity mp, std::vector<pain::Material *> &&asteroidMaterials)
@@ -46,7 +46,7 @@ ParticleSimulationECS::ParticleSimulationECS(
       m_walls(std::move(walls)),
       m_asteroidMaterials(std::move(asteroidMaterials)) {};
 
-void ParticleSimulationECS::releaseWorldResources()
+void ParticleSimulationArchetype::releaseWorldResources()
 {
   // The walls and the asteroids live in the world registry, not in this
   // object. The other flavour draws its own walls, so leaving these behind
@@ -62,13 +62,13 @@ void ParticleSimulationECS::releaseWorldResources()
   m_walls.clear();
 }
 
-void ParticleSimulationECS::setAsteroidCount(int count)
+void ParticleSimulationArchetype::setAsteroidCount(int count)
 {
   m_asteroidCount = std::clamp(count, 0, Simulation::maxAsteroidCount);
   resetSimulation();
 }
 
-void ParticleSimulationECS::resetSimulation()
+void ParticleSimulationArchetype::resetSimulation()
 {
   pain::Scene &scene = getScene();
 
@@ -98,7 +98,7 @@ void ParticleSimulationECS::resetSimulation()
   }
 }
 
-void ParticleSimulationECS::renderControls()
+void ParticleSimulationArchetype::renderControls()
 {
   ImGui::Text("Asteroids: %d", static_cast<int>(m_asteroids.size()));
   if (ImGui::InputInt("Amount", &m_asteroidCount, 1,

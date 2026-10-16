@@ -1,0 +1,277 @@
+
+/**
+ * @file Systems.h
+ * @brief Base interfaces and utilities for ECS systems.
+ *
+ * Defines the core system abstraction used by the engine. Systems operate on
+ * ECS sparse sets, react to events, update game state, and optionally render.
+ *
+ * Concrete systems (e.g. rendering, ImGui, gameplay logic) derive from
+ * System<Components> and implement one or more lifecycle interfaces:
+ *  - IOnUpdate
+ *  - IOnEvent
+ *  - IOnRender
+ *
+ * Compile-time concepts enforce correct inheritance and component usage.
+ */
+
+#pragma once
+
+#include "Core.h"
+#include "CoreRender/Renderer/Misc.h"
+#include "ECS/Components/ComponentManager.h"
+#include "ECS/Registry/Concepts.h"
+#include "ECS/Registry/SparseRegistry.h"
+#include "Events/EventDispatcher.h"
+
+namespace tcc
+{
+class DeltaTime;
+struct RenderApi;
+class RenderContext;
+
+/**
+ * @brief Compile-time typelist used for tagging systems.
+ *
+ * Used by systems to declare the component types they depend on. This allows
+ * scenes to validate at compile time that all required components are
+ * registered before inserting a system.
+ *
+ * Example:
+ * @code
+ * using Tags = TypeList<Transform, Sprite>;
+ * @endcode
+ */
+template <typename... Ts> struct TypeList {
+};
+
+/** @brief Interface for systems that update every frame. */
+struct IOnUpdate {
+  virtual ~IOnUpdate() = default;
+
+  /**
+   * @brief Called once per frame during the update phase.
+   *
+   * @param dt Frame delta time.
+   */
+  virtual void onUpdate(DeltaTime dt) = 0;
+};
+
+/** @brief Interface for systems that receive input or engine events. */
+struct IOnEvent {
+  virtual ~IOnEvent() = default;
+
+  /**
+   * @brief Called when an SDL event is dispatched.
+   *
+   * @param event Incoming SDL event.
+   */
+  virtual void onEvent(const SDL_Event &event) = 0;
+};
+
+/// @brief Interface for systems that participate in 2d rendering.
+struct IOnRender {
+  virtual ~IOnRender() = default;
+
+  /**
+   * @brief Called during the script phase. Used later to render materials in a
+   * specific order
+   *
+   * @param renderContext Allow script render commands to be stored for later
+   * @param renderer Owns active renderAPI.
+   * @param debug Whether debug rendering is enabled.
+   * @param dt Frame delta time.
+   */
+  virtual void onRender(RenderApi &renderAPI, DeltaTime dt) = 0;
+  virtual RenderPass getRenderPass() const = 0;
+};
+
+/**
+ * @brief Base class for all ECS systems.
+ *
+ * A System provides access to:
+ *  - The sparse set registry.
+ *  - The event dispatcher.
+ *
+ * It exposes helper utilities for querying sparse sets, accessing components,
+ * and managing entities.
+ *
+ * Concrete systems typically inherit from:
+ * @code
+ * class MySystem : public System<WorldComponents>, public IOnUpdate { ... };
+ * @endcode
+ *
+ * @tparam CM Component manager type associated with the scene.
+ */
+template <typename CM> struct System {
+public:
+  /** @brief Component manager type this system is bound to. */
+  using ComponentManager = CM;
+
+  /**
+   * @brief Constructs a system bound to a registry and event dispatcher.
+   *
+   * @param sparseSet ECS sparse set registry.
+   * @param eventDispatcher Event dispatcher used for publishing and receiving
+   * events.
+   */
+  System(reg::SparseRegistry<CM> &sparseSet,
+         reg::EventDispatcher &eventDispatcher)
+      : m_registry(sparseSet), m_eventDispatcher(eventDispatcher) {};
+
+  System(System &&other) = default;
+  System &operator=(System &&other) = delete;
+  NONCOPYABLE(System);
+  System() = delete;
+  virtual ~System() = default;
+
+  /** @brief Reference to the ECS sparse set registry. */
+  reg::SparseRegistry<CM> &m_registry;
+
+  /** @brief Reference to the event dispatcher. */
+  reg::EventDispatcher &m_eventDispatcher;
+
+  // ---------------------------------------------------- //
+  // Iterate sparse sets
+  // ---------------------------------------------------- //
+
+  /**
+   * @brief Queries sparse sets containing a set of registered components.
+   *
+   * Only enabled when all requested component types are registered in the
+   * component manager.
+   *
+   * Unlike the archetype query, which yields a vector of chunk views (one per
+   * archetype), a sparse set has a single dense array per component, so the
+   * registry hands back exactly one View. It is ephemeral: keep it only for
+   * the iteration it drives.
+   *
+   * @return A view over every entity owning all the requested components.
+   */
+  template <typename... Components, typename... ExcludeComponents>
+    requires(CM::template allRegistered<Components...>())
+  inline reg::View<Components...> view(exclude_t<ExcludeComponents...> = {})
+  {
+    return m_registry.template view<Components...>(
+        exclude<ExcludeComponents...>);
+  }
+
+  /** @brief Const version of view(). */
+  template <typename... Components, typename... ExcludeComponents>
+    requires(CM::template allRegistered<Components...>())
+  inline reg::View<Components...>
+  viewConst(exclude_t<ExcludeComponents...> = {})
+  {
+    return m_registry.template viewConst<Components...>(
+        exclude<ExcludeComponents...>);
+  }
+
+  // ---------------------------------------------------- //
+  // Sizes
+  // ---------------------------------------------------- //
+
+  /** @brief Returns the number of iterators produced by a query. */
+  template <typename... Components, typename... ExcludeComponents>
+    requires reg::IsMultipleTypes<Components...>
+  size_t iteratorSize(exclude_t<ExcludeComponents...> = {})
+  {
+    return m_registry.template iteratorSize<Components...>(
+        exclude<ExcludeComponents...>);
+  }
+
+  // ---------------------------------------------------- //
+  // Get components from sparse sets
+  // ---------------------------------------------------- //
+
+  /** @brief Retrieves multiple components from an entity. */
+  template <typename... Components>
+  std::tuple<Components &...> getComponents(reg::Entity entity)
+  {
+    return m_registry.template getComponents<Components...>(entity);
+  }
+
+  /** @brief Retrieves multiple components from an entity (const). */
+  template <typename... Components>
+  const std::tuple<const Components &...>
+  getComponents(reg::Entity entity) const
+  {
+    return std::as_const(m_registry)
+        .template getComponents<Components...>(entity);
+  }
+
+  /** @brief Retrieves a single component from an entity. */
+  template <typename T> T &getComponent(reg::Entity entity)
+  {
+    return m_registry.template getComponent<T>(entity);
+  }
+
+  /** @brief Retrieves a single component from an entity (const). */
+  template <typename T> const T &getComponent(reg::Entity entity) const
+  {
+    return std::as_const(m_registry).template getComponent<T>(entity);
+  }
+
+  // ---------------------------------------------------- //
+  // "Has" functions
+  // ---------------------------------------------------- //
+
+  /** @brief Checks whether an entity owns any of the specified components. */
+  template <typename... TargetComponents>
+  bool hasAnyComponents(reg::Entity entity) const
+  {
+    return std::as_const(m_registry)
+        .template hasAny<TargetComponents...>(entity);
+  }
+
+  /** @brief Checks whether an entity owns all of the specified components. */
+  template <typename... TargetComponents>
+  constexpr bool containsAllComponents(reg::Entity entity) const
+  {
+    return m_registry.template containsAll<TargetComponents...>(entity);
+  }
+
+  /**
+   * @brief Removes an entity and its components from the registry.
+   *
+   * @note The caller must specify the exact component set of the entity.
+   */
+  template <typename... Components> bool removeEntity(reg::Entity entity)
+  {
+    return m_registry.template remove<Components...>(entity);
+  }
+};
+
+// ------------------------------------------------------------
+// System Concepts & Validation
+// ------------------------------------------------------------
+
+/** @brief Forward declaration used for validating system tags. */
+template <typename TL> struct TagsAllRegistered;
+
+/** @brief Checks whether a system implements at least one lifecycle interface.
+ */
+template <typename T>
+concept HasAnySystemInterface =
+    std::is_base_of_v<IOnUpdate, T> || std::is_base_of_v<IOnEvent, T> ||
+    std::is_base_of_v<IOnRender, T>;
+
+/** @brief Checks whether a system defines a Tags type. */
+template <typename T>
+concept HasTags = requires { typename T::Tags; };
+
+/** @brief Checks whether all system tags are registered components.*/
+template <typename T>
+concept TagsAreRegistered =
+    HasTags<T> && TagsAllRegistered<typename T::Tags>::value;
+
+/**
+ * @brief Valid system concept.
+ *
+ * A valid system must:
+ *  - Derive from System<WorldComponents>.
+ *  - Implement at least one system interface (update, render, or event).
+ */
+template <typename T>
+concept ValidSystem = HasAnySystemInterface<T>;
+
+} // namespace tcc

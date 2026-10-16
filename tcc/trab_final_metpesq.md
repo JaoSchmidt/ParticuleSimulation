@@ -776,7 +776,122 @@ FUNCTION Archetype.remove(row)
 
 
 
-### 4.6 Explaining the ECS method: Scripting
+### 4.6 Explaining the ECS method: Sparse-Set Registries
+
+There is a second registry which is, in my opionion, a bit less intiuitive than Archetypes. Instead of gluing components of the same entity together, it keeps them apart and stores each component type in its own pair of lists: a sparse list and a dense list. The dense list is what actually holds the component data, tightly packed so it can be iterated sequentially. The sparse list is only a table of indirections: it maps an entity's index to the position of its component in the dense list.
+
+Since not every entity has every component, the sparse list will have gaps. Those gaps cost memory but buy us a constant time, O(1) lookup, so it is a deliberate trade of locality for speed. Both lists are related by a single expression:
+
+```
+dense[sparse[entityIndex]] == component(entityIndex)
+```
+
+The registry then owns one of these containers per component type, and the entity only needs to know its own index to find any of its components. This is the design used by EnTT<cite>\[[2]\][2]</cite>, and it is the one implemented in this project:
+
+```
+CLASS SparseSet<T>
+    sparse        : ARRAY<Index>   // entityIndex -> denseIndex, gaps are TOMBSTONE
+    dense         : ARRAY<T>       // tightly packed component data
+    denseToEntity : ARRAY<Index>   // denseIndex -> entityIndex, 1:1 with dense
+    TOMBSTONE = MAX_INDEX          // marks an entity that has no component here
+```
+
+The sparse list grows on demand, since entities are created over time and can have arbitrary indices. Writing into it also fills any gap left behind with a `TOMBSTONE`, which simply means "no component at this index":
+
+```
+// Grows the sparse list if needed, then points entityIndex at a dense slot
+FUNCTION SparseSet.setSparseIndex(entityIndex, denseIndex)
+    IF entityIndex >= sparse.size THEN
+        sparse.resize(entityIndex + 1, TOMBSTONE)
+    sparse[entityIndex] = denseIndex
+```
+
+Reading from it is then just a bounds check followed by one indirection, returning the tombstone when the entity has no component:
+
+```
+// Returns the dense slot of entityIndex, or TOMBSTONE if it has no component
+FUNCTION SparseSet.getDenseIndex(entityIndex)
+    IF entityIndex >= sparse.size THEN
+        RETURN TOMBSTONE
+    RETURN sparse[entityIndex]
+```
+
+Inserting is the operation that links both lists. If the entity already has that component, the value is simply overwritten in place. Otherwise the sparse slot is pointed at the end of the dense list, and the value and its entity index are appended to both dense lists at once:
+
+```
+// Insert or overwrite the component of an entity
+FUNCTION SparseSet.set(entityIndex, value)
+    denseIndex = getDenseIndex(entityIndex)
+
+    // Already there: overwrite in place
+    IF denseIndex != TOMBSTONE THEN
+        dense[denseIndex] = value
+        RETURN REFERENCE dense[denseIndex]
+
+    // New component: append, then link the sparse slot to where it landed
+    setSparseIndex(entityIndex, dense.size)
+    dense.append(value)
+    denseToEntity.append(entityIndex)
+    RETURN REFERENCE dense.back()
+```
+
+Retrieving has two flavors. The first returns nothing when the component is absent, useful for optional access. The second asserts, and is used when the component is known to exist:
+
+```
+// Pointer style: returns the component or NULL
+FUNCTION SparseSet.get(entityIndex)
+    denseIndex = getDenseIndex(entityIndex)
+    RETURN (denseIndex != TOMBSTONE) ? REFERENCE dense[denseIndex] : NULL
+
+// Reference style: used when the component must exist
+FUNCTION SparseSet.getRef(entityIndex)
+    denseIndex = getDenseIndex(entityIndex)
+    ASSERT(denseIndex != TOMBSTONE, "getRef on invalid index " + entityIndex)
+    RETURN REFERENCE dense[denseIndex]
+```
+
+Removal is where the dense list earns its name. To keep it packed, we move the last element into the hole left by the deleted one and shrink the list. Because that last element changed position, its sparse slot must be updated to point at its new home, and the removed entity's slot is set back to a tombstone. It is an O(1) operation, at the cost of not preserving the insertion order:
+
+```
+// O(1) swap-and-pop: the last element fills the hole
+FUNCTION SparseSet.unset(entityIndex)
+    deleted = getDenseIndex(entityIndex)
+
+    IF dense IS EMPTY OR deleted == TOMBSTONE THEN
+        RETURN
+
+    // The last element moves into the hole, so its sparse slot must point there...
+    setSparseIndex(denseToEntity.back(), deleted)
+    // ...while the removed entity is cleared
+    setSparseIndex(entityIndex, TOMBSTONE)
+
+    SWAP dense[deleted], dense.back()
+    SWAP denseToEntity[deleted], denseToEntity.back()
+    dense.pop()
+    denseToEntity.pop()
+```
+
+Finally, the queries the registry uses to inspect and iterate a pool:
+
+```
+FUNCTION SparseSet.contains(entityIndex)
+    RETURN getDenseIndex(entityIndex) != TOMBSTONE
+
+FUNCTION SparseSet.size()
+    RETURN dense.size
+
+// Copy of denseToEntity; the snapshot lets the caller delete while iterating
+FUNCTION SparseSet.getIndexList()
+    RETURN COPY OF denseToEntity
+
+FUNCTION SparseSet.clear()
+    dense.clear()
+    sparse.clear()
+    denseToEntity.clear()
+```
+
+
+### 4.7 Explaining the ECS method: Scripting
 
 After reviewing the ECS, anyone would be thinking on how hard it would be to replace the direct approach with the ECS approach for all the problems.
 After all, to write everything you must abstract based on behaviors of all entities, and not based on individual objects. 

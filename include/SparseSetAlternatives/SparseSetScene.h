@@ -1,0 +1,472 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
+// Scene.h
+#pragma once
+
+#include "Assets/DeltaTime.h"
+#include "Core.h"
+#include "CoreFiles/ThreadPool.h"
+#include "ECS/Registry/Bitmask.h"
+#include "ECS/Registry/Entity.h"
+#include "ECS/Registry/SparseRegistry.h"
+#include "ECS/Systems.h"
+#include "Events/EventDispatcher.h"
+
+#include <sol/sol.hpp>
+#include <utility>
+
+namespace tcc
+{
+struct RenderApi;
+class Application;
+
+/**
+ * @brief Generic scene abstraction owning an ECS registry, systems, scripting,
+ *        threading utilities, and engine event dispatching.
+ *
+ * SparseSetScene represents a high-level execution context of the engine.
+ * It owns:
+ *  - An sparse set registry for entity/component storage.
+ *  - A set of systems responsible for update, rendering and event processing.
+ *  It references from the application:
+ *  - A shared Lua state for gameplay and tooling scripting.
+ *  - A thread pool with a main-thread job queue.
+ *  - An event dispatcher for engine events.
+ *
+ * The scene is parameterized by a compile-time component manager, allowing
+ * multiple specialized scene types (e.g. world scene, UI scene) to coexist
+ * with distinct component sets and registries.
+ *
+ * @tparam Manager Compile-time component manager defining which ECS components
+ *                 are registered and available in this scene.
+ */
+template <reg::CompileTimeBitMaskType Manager> class SparseSetScene
+{
+  template <reg::CompileTimeBitMaskType O> struct HasSameComponents;
+  template <reg::CompileTimeBitMaskType O> struct HasSameComponents {
+    static constexpr bool value = std::is_same_v<Manager, O>;
+  };
+
+public:
+  // =============================================================== //
+  // REGISTRY RELATED
+  // =============================================================== //
+
+  /// @brief Returns the underlying sparse set registry.
+  reg::SparseRegistry<Manager> &getRegistry() { return m_registry; }
+
+  /// @brief Returns the root entity associated with this scene.
+  reg::Entity getEntity() const { return m_entity; }
+
+  /**
+   * @brief Creates a new entity in the registry.
+   *
+   * @return Newly created entity identifier.
+   */
+  inline reg::Entity createEntity() { return m_registry.createEntity(); }
+  inline reg::Entity createEntity(std::string_view name)
+  {
+#ifndef NDEBUG
+    reg::Entity e = m_registry.createEntity();
+    m_entityNames.emplace(e, name);
+    return e;
+#else
+    return m_registry.createEntity();
+#endif
+  }
+
+  /**
+   * @brief Creates multiple components at once for an entity.
+   *
+   * All components are moved into the registry and a single sparse set
+   * transition is performed when possible.
+   *
+   * @tparam Components ECS component types.
+   * @param entity Target entity.
+   * @param components Component instances to move.
+   * @return Tuple of references to the created components.
+   */
+  template <reg::ECSComponent... Components>
+  std::tuple<Components &...> createComponents(reg::Entity entity,
+                                               Components &&...components)
+  {
+    return m_registry.template createComponents<Components...>(
+        entity, std::forward<Components>(components)...);
+  }
+
+  /**
+   * @brief Creates a single component on an entity.
+   *
+   * @tparam T Component type.
+   * @param entity Target entity.
+   * @param args Constructor arguments for the component.
+   * @return Reference to the created component.
+   */
+  template <reg::ECSComponent T, typename... Args>
+  T &createComponent(reg::Entity entity, Args &&...args)
+  {
+    return m_registry.template createComponent<T>(entity,
+                                                  std::forward<Args>(args)...);
+  }
+
+  /**
+   * @brief Adds a single component to an existing entity. Force sparse set
+   *
+   * @tparam Components ECS component types.
+   * @param entity Target entity.
+   * @param bitmask Target final assumed bitmask
+   * @param components Component instances to add.
+   * @return Tuple of references to the added components.
+   */
+  template <reg::ECSComponent C>
+  void manualPush(reg::Entity entity, reg::Bitmask bitmask, C &&comps)
+  {
+    m_registry.manualPush(entity, bitmask, std::forward<C>(comps));
+  }
+  /**
+   * @brief Emplace a single component to an existing entity. Force sparse set
+   * Should be used only outside c++
+   *
+   * @tparam Components ECS component types.
+   * @param entity Target entity.
+   * @param bitmask Target final assumed bitmask
+   * @param components Component instances to add.
+   * @return Tuple of references to the added components.
+   */
+  template <reg::ECSComponent C, typename... Args>
+  void manualEmplace(reg::Entity entity, reg::Bitmask bitmask, Args &&...args)
+  {
+    m_registry.template manualEmplace<C>(entity, bitmask,
+                                         std::forward<Args>(args)...);
+  }
+
+  /**
+   * @brief Adds multiple components to an existing entity.
+   *
+   * @tparam Components ECS component types.
+   * @param entity Target entity.
+   * @param components Component instances to add.
+   * @return Tuple of references to the added components.
+   */
+  template <reg::ECSComponent... Components>
+  std::tuple<Components &...> addComponents(reg::Entity entity,
+                                            Components &&...components)
+  {
+    return m_registry.template addComponents<Components...>(
+        entity, std::forward<Components>(components)...);
+  }
+
+  /**
+   * @brief Returns the bitmask corresponding to a single component type.
+   *
+   * @tparam Component Component type.
+   */
+  template <reg::ECSComponent Component> reg::Bitmask getSingleBitmask()
+  {
+    return Manager::template singleComponentBitmask<Component>();
+  }
+
+  /**
+   * @brief Queries sparse sets containing the given components.
+   *
+   * @tparam Components Required component types.
+   * @tparam ExcludeComponents Component types to exclude.
+   * @return Vector of chunk views matching the query.
+   */
+  template <reg::ECSComponent... Components, typename... ExcludeComponents>
+  inline std::vector<reg::ChunkView<Components...>>
+  view(exclude_t<ExcludeComponents...> = {})
+  {
+    return m_registry.template view<Components...>(
+        exclude<ExcludeComponents...>);
+  }
+
+  /// @brief Const version of view().
+  template <reg::ECSComponent... Components, typename... ExcludeComponents>
+  inline std::vector<reg::ChunkView<const Components...>>
+  viewConst(exclude_t<ExcludeComponents...> = {}) const
+  {
+    return m_registry.template viewConst<Components...>(
+        exclude<ExcludeComponents...>);
+  }
+
+  /**
+   * @brief Retrieves multiple components from an entity.
+   *
+   * @tparam Components Component types.
+   * @param entity Target entity.
+   * @return Tuple of references to the requested components.
+   */
+  template <reg::ECSComponent... Components>
+  std::tuple<Components &...> getComponents(reg::Entity entity)
+  {
+    return m_registry.template getComponents<Components...>(entity);
+  }
+
+  /// @brief Const version of getComponents().
+  template <reg::ECSComponent... Components>
+  std::tuple<const Components &...> getComponents(reg::Entity entity) const
+  {
+    return std::as_const(m_registry)
+        .template getComponents<Components...>(entity);
+  }
+
+  /** @brief Retrieves a single component from an entity. */
+  template <reg::ECSComponent T> T &getComponent(reg::Entity entity)
+  {
+    return m_registry.template getComponent<T>(entity);
+  }
+
+  /** @brief Const version of getComponent(). */
+  template <reg::ECSComponent T> const T &getComponent(reg::Entity entity) const
+  {
+    return std::as_const(m_registry).template getComponent<T>(entity);
+  }
+
+  /** @brief Checks if an entity has at least one of the given components. */
+  template <reg::ECSComponent... TargetComponents>
+  bool hasAnyComponents(reg::Entity entity) const
+  {
+    return std::as_const(m_registry)
+        .template hasAny<TargetComponents...>(entity);
+  }
+
+  /** @brief Checks if an entity contains all specified components. */
+  template <reg::ECSComponent... TargetComponents>
+  constexpr bool hasAllComponents(reg::Entity entity) const
+  {
+    return m_registry.template containsAll<TargetComponents...>(entity);
+  }
+
+  /** @brief Removes an entity and all of its components from the registry. */
+  void removeEntity(reg::Entity entity)
+  {
+    m_registry.remove(entity);
+#ifndef NDEBUG
+    m_entityNames.erase(entity);
+#endif
+  }
+
+  // =============================================================== //
+  // LUA SCRIPTING RELATED
+  // =============================================================== //
+
+  /**
+   * @brief Attaches and initializes a Lua script component on an entity.
+   *
+   * Only available when the LuaScriptComponent is registered by the
+   * manager.
+   *
+   * @param entity Target entity.
+   * @param scriptPath Path to the script file.
+   * @param initArgs
+   */
+  static void
+  emplaceLuaScript(reg::Entity entity, SparseSetScene<Manager> &scene,
+                   const char *scriptPath, const sol::table &initArgs)
+    requires(Manager::template isRegistered<tag::LuaScript>());
+  /**
+   * @brief Attaches and initializes a Lua script component on an entity.
+   *
+   * Only available when the LuaScriptComponent is registered by the manager.
+   *
+   * @param entity Target entity.
+   * @param scriptPath Path to the script file.
+   */
+  static void emplaceLuaScript(reg::Entity entity,
+                               SparseSetScene<Manager> &scene,
+                               const char *scriptPath)
+    requires(Manager::template isRegistered<tag::LuaScript>());
+
+  /** @brief Returns the shared Lua state used by the scene. */
+  sol::state &getSharedLuaState() { return m_luaState; }
+
+  // =============================================================== //
+  // SYSTEMS RELATED
+  // =============================================================== //
+
+  /** @brief Updates all systems implementing IOnUpdate. */
+  void updateSystems(DeltaTime deltaTime);
+
+  /** @brief Dispatches input events to systems implementing IOnEvent. */
+  void updateSystems(const SDL_Event &event);
+
+  /** @brief Executes render callbacks on systems implementing IOnRender. */
+  void renderSystems(RenderPass pass, RenderApi &renderAPI,
+                     DeltaTime currentTime);
+
+  /**
+   * @brief Retrieves a system by its concrete type.
+   *
+   * @tparam Sys System type.
+   * @return Pointer to the system if found, otherwise nullptr.
+   */
+  template <typename Sys> Sys *getSys()
+  {
+    std::type_index key = std::type_index(typeid(Sys));
+    auto it = m_systems.find(key);
+    if (it != m_systems.end()) {
+      return static_cast<Sys *>(it->second.get());
+    }
+    PLOG_E("Could not recover system {}", typeid(Sys).name());
+    return nullptr;
+  }
+  /**
+   * @brief Registers a system into the scene with compile-time validation.
+   * System will be executed during game loop IN ORDER they are added
+   *
+   * System must:
+   *  - be constructible
+   *  - inherit the class Systems<WorldComponents>
+   *  - have at least one system interface: IOnUpdate, IOnEvent, IOnRender
+   *  - use components registered inside WorldComponents
+   *
+   * If the system already exists, insertion is ignored and a warning is logged.
+   *
+   * @tparam Sys System type.
+   * @tparam Args Constructor argument types.
+   * @param args Arguments forwarded to the system constructor.
+   */
+  template <typename Sys, typename... Args>
+    requires std::is_constructible_v<Sys, reg::SparseRegistry<Manager> &,
+                                     reg::EventDispatcher &, Args...> &&
+             std::constructible_from<Sys, reg::SparseRegistry<Manager> &,
+                                     reg::EventDispatcher &, Args...> &&
+             ValidSystem<Sys> &&
+             HasSameComponents<typename Sys::ComponentManager>::value
+  void addSystem(Args &&...args)
+  {
+    auto [itSystem, isInserted] = m_systems.emplace(
+        std::make_pair(std::type_index(typeid(Sys)), //
+                       std::make_unique<Sys>(m_registry, m_eventDispatcher,
+                                             std::forward<Args>(args)...) //
+                       ));
+    if (!isInserted) {
+      PLOG_W("Could not insert System {}", typeid(Sys).name());
+      if (m_systems.contains(std::type_index(typeid(Sys))))
+        PLOG_W("It was already added previously");
+      return;
+    }
+    Sys *s = static_cast<Sys *>(itSystem->second.get());
+    if constexpr (std::derived_from<Sys, IOnEvent>)
+      m_eventSystems.emplace_back(s);
+    if constexpr (std::derived_from<Sys, IOnRender>)
+      m_renderSystems[static_cast<size_t>(s->getRenderPass())].emplace_back(s);
+    if constexpr (std::derived_from<Sys, IOnUpdate>)
+      m_updateSystems.emplace_back(s);
+  }
+
+  // =============================================================== //
+  // MULTI THREAD RELATED
+  // =============================================================== //
+
+  /** @brief Returns the thread pool associated with the scene. */
+  ThreadPool &getThreadPool() { return m_threadPool; }
+
+  /** @brief Const access to the thread pool. */
+  const ThreadPool &getThreadPool() const { return m_threadPool; }
+
+  using MainThreadJob = std::function<void()>;
+
+  /**
+   * @brief Enqueues a job to be executed on the main thread.
+   *
+   * Jobs are executed during flushMainThreadJobs().
+   */
+  void enqueueMainThread(MainThreadJob job);
+
+  /**
+   * @brief Executes and clears all queued main-thread jobs.
+   *
+   * Intended to be called once per frame.
+   */
+  void flushMainThreadJobs();
+
+  // =============================================================== //
+  // ENGINE EVENTS RELATED
+  // =============================================================== //
+
+  /** @brief Returns the event dispatcher associated with the scene. */
+  reg::EventDispatcher &getEventDispatcher() { return m_eventDispatcher; }
+
+  /** @brief Const access to the event dispatcher. */
+  const reg::EventDispatcher &getEventDispatcher() const
+  {
+    return m_eventDispatcher;
+  }
+
+  /**
+   * @brief Manually creates an entity with specific sparse set. Use only if you
+   * have a bitmask ID, which you probably don't have nor need.
+   *
+   * @return Newly created entity identifier.
+   */
+  inline reg::Entity manualEntityCreation(reg::Bitmask bitmask)
+  {
+    return m_registry.createEntity(bitmask);
+  }
+
+  // =============================================================== //
+  // CONSTRUCTION
+  // =============================================================== //
+
+  /**
+   * @brief Constructs a scene bound to an event dispatcher, Lua state,
+   *        and thread pool.
+   */
+  SparseSetScene(reg::EventDispatcher &ed, sol::state &solState,
+                 ThreadPool &threadPool);
+
+  SparseSetScene() = delete;
+
+#ifndef NDEBUG
+  const reg::SparseRegistry<Manager> &getRegistry() const { return m_registry; }
+  const std::unordered_map<reg::Entity, std::string> &getEntityNames() const
+  {
+    return m_entityNames;
+  }
+#endif
+protected:
+  /// ECS registry storing entities and components.
+  reg::SparseRegistry<Manager> m_registry;
+
+  /// Root entity for the scene.
+  reg::Entity m_entity;
+
+  /// Allows derived scenes to extend the Lua environment.
+  sol::state &enchanceLuaState(sol::state &state);
+
+  /// Shared Lua state reference.
+  sol::state &m_luaState;
+
+  /// All registered systems indexed by type.
+  std::map<std::type_index, std::unique_ptr<System<Manager>>> m_systems;
+
+  /// Cached system lists for fast iteration.
+  std::vector<IOnUpdate *> m_updateSystems;
+  std::vector<IOnEvent *> m_eventSystems;
+  std::array<std::vector<IOnRender *>, (size_t)RenderPass::Count>
+      m_renderSystems;
+
+  /// Thread pool used by the scene.
+  ThreadPool &m_threadPool;
+
+  /// Synchronization for main-thread job queue.
+  std::mutex m_mainThreadMutex;
+
+  /// Pending jobs executed on the main thread.
+  std::queue<MainThreadJob> m_mainThreadJobs;
+
+  /// Event dispatcher used by the scene.
+  reg::EventDispatcher &m_eventDispatcher;
+
+#ifndef NDEBUG
+  std::unordered_map<reg::Entity, std::string> m_entityNames;
+#endif
+};
+
+} // namespace tcc

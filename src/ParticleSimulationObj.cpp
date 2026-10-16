@@ -1,8 +1,5 @@
 #include "Assets/ManagerTexture.h"
 #include "Asteroid.h"
-#include "CustomPanel.h"
-#include "Misc/Basic2dPlayer.h"
-#include "MousePointer.h"
 #include "ParticleSimulation.h"
 #include "Wall.h"
 #include <pain.h>
