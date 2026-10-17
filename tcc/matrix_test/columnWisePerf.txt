@@ -1,0 +1,15 @@
+ Performance counter stats for './columnWise':
+
+       528,483,909      cache-references:u                                                    
+        87,787,381      cache-misses:u                                                        
+     4,800,099,079      L1-dcache-loads:u                                                     
+       514,973,026      L1-dcache-load-misses:u                                               
+       396,267,896      LLC-loads:u                                                           
+        40,698,835      LLC-load-misses:u                                                     
+
+       5.210248783 seconds time elapsed
+
+       4.877584000 seconds user
+       0.184195000 seconds sys
+
+

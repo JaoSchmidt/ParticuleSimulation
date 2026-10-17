@@ -9,17 +9,16 @@
 #include "Physics/Movement3dComponent.h"
 #include "Physics/MovementComponent.h"
 #include "Physics/RotationComponent.h"
-namespace tcc
-{
-
-namespace Systems
+namespace tcc::Systems
 {
 namespace detail
 {
 void _implOnUpdate(
-    DeltaTime deltaTime, reg::View<RotationComponent> viewRotation,
-    reg::View<Transform2dComponent, Movement2dComponent> viewMovement2d,
-    reg::View<Transform3dComponent, Movement3dComponent> viewMovement3d)
+    pain::DeltaTime deltaTime, reg::View<pain::RotationComponent> viewRotation,
+    reg::View<pain::Transform2dComponent, pain::Movement2dComponent>
+        viewMovement2d,
+    reg::View<pain::Transform3dComponent, pain::Movement3dComponent>
+        viewMovement3d)
 {
   PROFILE_FUNCTION();
   // =============================================================== //
@@ -30,7 +29,7 @@ void _implOnUpdate(
     // Was: one ChunkView per archetype, each walked with an index over the
     // SoA columns. A single dense array per component now, so the same loop
     // body becomes the lambda given to forEach.
-    viewRotation.forEach([](RotationComponent &r) {
+    viewRotation.forEach([](pain::RotationComponent &r) {
       r.m_rotation = {cos(glm::radians(r.m_rotationRadians)),
                       sin(glm::radians(r.m_rotationRadians)), 0};
     });
@@ -44,7 +43,7 @@ void _implOnUpdate(
     float dt = deltaTime.getSecondsf();
 
     viewMovement2d.forEach(
-        [dt](Transform2dComponent &t, Movement2dComponent &m) {
+        [dt](pain::Transform2dComponent &t, pain::Movement2dComponent &m) {
           t.m_position += m.m_velocity * dt;
         });
   }
@@ -53,12 +52,11 @@ void _implOnUpdate(
     float dt = deltaTime.getSecondsf();
 
     viewMovement3d.forEach(
-        [dt](Transform3dComponent &t, Movement3dComponent &m) {
+        [dt](pain::Transform3dComponent &t, pain::Movement3dComponent &m) {
           t.m_position += m.m_velocity * dt;
         });
   }
 }
 } // namespace detail
 
-} // namespace Systems
-} // namespace tcc
+} // namespace tcc::Systems

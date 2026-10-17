@@ -8,32 +8,27 @@
 #pragma once
 
 #include "Assets/DeltaTime.h"
-#include "Core.h"
 #include "CoreFiles/ThreadPool.h"
 #include "ECS/Registry/Bitmask.h"
 #include "ECS/Registry/Entity.h"
 #include "ECS/Registry/SparseRegistry.h"
-#include "ECS/Systems.h"
-#include "Events/EventDispatcher.h"
+#include "SparseSetAlternatives/Systems.h"
+#include <pain.h>
 
-#include <sol/sol.hpp>
 #include <utility>
 
 namespace tcc
 {
-struct RenderApi;
-class Application;
 
 /**
  * @brief Generic scene abstraction owning an ECS registry, systems, scripting,
  *        threading utilities, and engine event dispatching.
  *
- * SparseSetScene represents a high-level execution context of the engine.
+ * AlternativeScene represents a high-level execution context of the engine.
  * It owns:
  *  - An sparse set registry for entity/component storage.
  *  - A set of systems responsible for update, rendering and event processing.
  *  It references from the application:
- *  - A shared Lua state for gameplay and tooling scripting.
  *  - A thread pool with a main-thread job queue.
  *  - An event dispatcher for engine events.
  *
@@ -44,7 +39,7 @@ class Application;
  * @tparam Manager Compile-time component manager defining which ECS components
  *                 are registered and available in this scene.
  */
-template <reg::CompileTimeBitMaskType Manager> class SparseSetScene
+template <reg::CompileTimeBitMaskType Manager> class AlternativeScene
 {
   template <reg::CompileTimeBitMaskType O> struct HasSameComponents;
   template <reg::CompileTimeBitMaskType O> struct HasSameComponents {
@@ -178,7 +173,7 @@ public:
    * @return Vector of chunk views matching the query.
    */
   template <reg::ECSComponent... Components, typename... ExcludeComponents>
-  inline std::vector<reg::ChunkView<Components...>>
+  inline std::vector<reg::View<Components...>>
   view(exclude_t<ExcludeComponents...> = {})
   {
     return m_registry.template view<Components...>(
@@ -187,7 +182,7 @@ public:
 
   /// @brief Const version of view().
   template <reg::ECSComponent... Components, typename... ExcludeComponents>
-  inline std::vector<reg::ChunkView<const Components...>>
+  inline std::vector<reg::View<const Components...>>
   viewConst(exclude_t<ExcludeComponents...> = {}) const
   {
     return m_registry.template viewConst<Components...>(
@@ -252,52 +247,18 @@ public:
   }
 
   // =============================================================== //
-  // LUA SCRIPTING RELATED
-  // =============================================================== //
-
-  /**
-   * @brief Attaches and initializes a Lua script component on an entity.
-   *
-   * Only available when the LuaScriptComponent is registered by the
-   * manager.
-   *
-   * @param entity Target entity.
-   * @param scriptPath Path to the script file.
-   * @param initArgs
-   */
-  static void
-  emplaceLuaScript(reg::Entity entity, SparseSetScene<Manager> &scene,
-                   const char *scriptPath, const sol::table &initArgs)
-    requires(Manager::template isRegistered<tag::LuaScript>());
-  /**
-   * @brief Attaches and initializes a Lua script component on an entity.
-   *
-   * Only available when the LuaScriptComponent is registered by the manager.
-   *
-   * @param entity Target entity.
-   * @param scriptPath Path to the script file.
-   */
-  static void emplaceLuaScript(reg::Entity entity,
-                               SparseSetScene<Manager> &scene,
-                               const char *scriptPath)
-    requires(Manager::template isRegistered<tag::LuaScript>());
-
-  /** @brief Returns the shared Lua state used by the scene. */
-  sol::state &getSharedLuaState() { return m_luaState; }
-
-  // =============================================================== //
   // SYSTEMS RELATED
   // =============================================================== //
 
   /** @brief Updates all systems implementing IOnUpdate. */
-  void updateSystems(DeltaTime deltaTime);
+  void updateSystems(pain::DeltaTime deltaTime);
 
   /** @brief Dispatches input events to systems implementing IOnEvent. */
   void updateSystems(const SDL_Event &event);
 
   /** @brief Executes render callbacks on systems implementing IOnRender. */
-  void renderSystems(RenderPass pass, RenderApi &renderAPI,
-                     DeltaTime currentTime);
+  void renderSystems(pain::RenderPass pass, pain::RenderApi &renderAPI,
+                     pain::DeltaTime currentTime);
 
   /**
    * @brief Retrieves a system by its concrete type.
@@ -418,10 +379,9 @@ public:
    * @brief Constructs a scene bound to an event dispatcher, Lua state,
    *        and thread pool.
    */
-  SparseSetScene(reg::EventDispatcher &ed, sol::state &solState,
-                 ThreadPool &threadPool);
+  AlternativeScene(reg::EventDispatcher &ed, ThreadPool &threadPool);
 
-  SparseSetScene() = delete;
+  AlternativeScene() = delete;
 
 #ifndef NDEBUG
   const reg::SparseRegistry<Manager> &getRegistry() const { return m_registry; }
@@ -437,19 +397,13 @@ protected:
   /// Root entity for the scene.
   reg::Entity m_entity;
 
-  /// Allows derived scenes to extend the Lua environment.
-  sol::state &enchanceLuaState(sol::state &state);
-
-  /// Shared Lua state reference.
-  sol::state &m_luaState;
-
   /// All registered systems indexed by type.
   std::map<std::type_index, std::unique_ptr<System<Manager>>> m_systems;
 
   /// Cached system lists for fast iteration.
   std::vector<IOnUpdate *> m_updateSystems;
   std::vector<IOnEvent *> m_eventSystems;
-  std::array<std::vector<IOnRender *>, (size_t)RenderPass::Count>
+  std::array<std::vector<IOnRender *>, (size_t)pain::RenderPass::Count>
       m_renderSystems;
 
   /// Thread pool used by the scene.

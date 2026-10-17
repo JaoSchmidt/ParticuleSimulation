@@ -30,10 +30,9 @@
  * but const-correctness is enforced by convention here rather than by the type
  * system, unlike the archetype version's ChunkViewConst.
  *
- * @note The class name, namespace, Tags and callbacks are kept identical to the
- * archetype version, so aliasesSystems.h needs no change when this header is
- * swapped in. Because both spellings define the same symbols, the archetype and
- * the sparse set variant must never be included in the same translation unit.
+ * @note This variant lives in namespace tcc and refers to every engine type by
+ * its fully qualified pain:: name, so it can coexist with the archetype system
+ * inside the same binary.
  *
  * @note As with any system, the render callback is enabled only because the
  * system inherits the corresponding interface:
@@ -45,24 +44,12 @@
 #include "Assets/DeltaTime.h"
 #include "Core.h"
 #include "CoreRender/MeshComponent.h"
-#include "CoreRender/SpriteComponent.h"
 #include "ECS/Components/ComponentManager.h"
-#include "ECS/Registry/SparseView.h"
-#include "Physics/MovementComponent.h"
+#include "Physics/Movement3dComponent.h"
 #include "SparseSetAlternatives/Systems.h"
+#include <pain.h>
 
-namespace tcc
-{
-// Forward declarations to avoid heavy renderer and component includes.
-struct Renderer2d;
-struct Transform2dComponent;
-struct RotationComponent;
-struct SpriteComponent;
-struct MaterialComponent;
-struct ColorIndexComponent;
-struct TextComponent;
-
-namespace Systems
+namespace tcc::Systems
 {
 
 namespace detail
@@ -75,16 +62,17 @@ namespace detail
  * and the work moves into the lambda passed to View::forEach.
  */
 void _implOnRender(
-    RenderApi &renderer, DeltaTime currentTime,
-    reg::View<Transform2dComponent, SpriteComponent, RotationComponent,
-              MaterialComponent>
+    pain::RenderApi &renderer, pain::DeltaTime currentTime,
+    reg::View<pain::Transform2dComponent, pain::SpriteComponent,
+              pain::RotationComponent, pain::MaterialComponent>
         viewRotation,
-    reg::View<Transform2dComponent, SpriteComponent, MaterialComponent>
+    reg::View<pain::Transform2dComponent, pain::SpriteComponent,
+              pain::MaterialComponent>
         viewTexture,
-    reg::View<Transform2dComponent, SpriteComponent, ColorIndexComponent,
-              MaterialComponent>
+    reg::View<pain::Transform2dComponent, pain::SpriteComponent,
+              pain::ColorIndexComponent, pain::MaterialComponent>
         viewColored,
-    reg::View<Transform2dComponent, TextComponent> viewText);
+    reg::View<pain::Transform2dComponent, pain::TextComponent> viewText);
 } // namespace detail
 
 /**
@@ -124,13 +112,13 @@ struct Render2d : public System<CM>, IOnRender {
    * Additional queries may selectively include or exclude components at
    * runtime.
    */
-  using Tags = TypeList<Transform2dComponent, //
-                        SpriteComponent,      //
-                        RotationComponent,    //
-                        Transform3dComponent, //
-                        MeshComponent,        //
-                        MaterialComponent,    //
-                        ColorIndexComponent>;
+  using Tags = TypeList<pain::Transform2dComponent, //
+                        pain::SpriteComponent,      //
+                        pain::RotationComponent,    //
+                        pain::Transform3dComponent, //
+                        pain::MeshComponent,        //
+                        pain::MaterialComponent,    //
+                        pain::ColorIndexComponent>;
 
   /** @brief Inherit base System constructors. */
   using System<CM>::System;
@@ -148,24 +136,30 @@ struct Render2d : public System<CM>, IOnRender {
    * @note This method is invoked only because the system inherits from
    * IOnRender.
    */
-  void onRender(RenderApi &renderer, DeltaTime currentTime) override
+  void onRender(pain::RenderApi &renderer, pain::DeltaTime currentTime) override
   {
     detail::_implOnRender(
         renderer, currentTime,
-        this->template viewConst<Transform2dComponent, SpriteComponent,
-                                 RotationComponent, MaterialComponent>(
-            exclude<ColorIndexComponent>),
-        this->template viewConst<Transform2dComponent, SpriteComponent,
-                                 MaterialComponent>(
-            exclude<RotationComponent, ColorIndexComponent>),
-        this->template viewConst<Transform2dComponent, SpriteComponent,
-                                 ColorIndexComponent, MaterialComponent>(
-            exclude<RotationComponent>),
-        this->template viewConst<Transform2dComponent, TextComponent>(
-            exclude<RotationComponent>));
+        this->template viewConst<pain::Transform2dComponent,
+                                 pain::SpriteComponent, pain::RotationComponent,
+                                 pain::MaterialComponent>(
+            exclude<pain::ColorIndexComponent>),
+        this->template viewConst<pain::Transform2dComponent,
+                                 pain::SpriteComponent,
+                                 pain::MaterialComponent>(
+            exclude<pain::RotationComponent, pain::ColorIndexComponent>),
+        this->template viewConst<
+            pain::Transform2dComponent, pain::SpriteComponent,
+            pain::ColorIndexComponent, pain::MaterialComponent>(
+            exclude<pain::RotationComponent>),
+        this->template viewConst<pain::Transform2dComponent,
+                                 pain::TextComponent>(
+            exclude<pain::RotationComponent>));
   }
-  RenderPass getRenderPass() const override { return RenderPass::Dim2d; }
+  pain::RenderPass getRenderPass() const override
+  {
+    return pain::RenderPass::Dim2d;
+  }
 };
 
-} // namespace Systems
-} // namespace tcc
+} // namespace tcc::Systems

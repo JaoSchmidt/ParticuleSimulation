@@ -31,7 +31,7 @@ pain::Application *pain::createApplication()
   );
 
   // Create the ECS World Scene and its systems
-  pain::Scene &scene = Sys::declareSystems(app);
+  pain::Scene &scene = Sys::declareArchetypeSystems(app);
 
   // The switcher owns the shared assets, starts the default flavour and takes
   // over the "Simulation" panel, from where the other one can be selected.

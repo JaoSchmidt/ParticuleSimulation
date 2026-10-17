@@ -24,10 +24,9 @@
  * this folder; they are distinct overloads and are kept identical to the
  * archetype version on purpose.
  *
- * @note The class name, namespace, Tags and callbacks are kept identical to the
- * archetype version, so aliasesSystems.h needs no change when this header is
- * swapped in. Because both spellings define the same symbols, the archetype and
- * the sparse set variant must never be included in the same translation unit.
+ * @note This variant lives in namespace tcc and refers to every engine type by
+ * its fully qualified pain:: name, so it can coexist with the archetype system
+ * inside the same binary.
  *
  * @note As with any system, the callback execution is only enabled because the
  * system inherits the corresponding interface:
@@ -42,10 +41,7 @@
 #include "SparseSetAlternatives/Systems.h"
 #include <pain.h>
 
-namespace tcc
-{
-
-namespace Systems
+namespace tcc::Systems
 {
 
 namespace detail
@@ -149,5 +145,4 @@ struct NativeScript : public System<CM>, IOnUpdate, IOnEvent, IOnRender {
   }
 };
 
-} // namespace Systems
-} // namespace tcc
+} // namespace tcc::Systems

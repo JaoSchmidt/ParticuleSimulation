@@ -23,12 +23,10 @@
 #include "ECS/Registry/Concepts.h"
 #include "ECS/Registry/SparseRegistry.h"
 #include "Events/EventDispatcher.h"
+#include <pain.h>
 
 namespace tcc
 {
-class DeltaTime;
-struct RenderApi;
-class RenderContext;
 
 /**
  * @brief Compile-time typelist used for tagging systems.
@@ -54,7 +52,7 @@ struct IOnUpdate {
    *
    * @param dt Frame delta time.
    */
-  virtual void onUpdate(DeltaTime dt) = 0;
+  virtual void onUpdate(pain::DeltaTime dt) = 0;
 };
 
 /** @brief Interface for systems that receive input or engine events. */
@@ -82,8 +80,8 @@ struct IOnRender {
    * @param debug Whether debug rendering is enabled.
    * @param dt Frame delta time.
    */
-  virtual void onRender(RenderApi &renderAPI, DeltaTime dt) = 0;
-  virtual RenderPass getRenderPass() const = 0;
+  virtual void onRender(pain::RenderApi &renderAPI, pain::DeltaTime dt) = 0;
+  virtual pain::RenderPass getRenderPass() const = 0;
 };
 
 /**

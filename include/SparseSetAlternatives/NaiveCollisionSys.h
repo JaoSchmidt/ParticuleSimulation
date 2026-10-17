@@ -37,10 +37,9 @@
  * archetype version. For a brute-force solver that writes back velocities this
  * can change the exact numeric result, though both remain valid naive solvers.
  *
- * @note The class name, namespace, Tags and callbacks are kept identical to the
- * archetype version, so aliasesSystems.h needs no change when this header is
- * swapped in. Because both spellings define the same symbols, the archetype and
- * the sparse set variant must never be included in the same translation unit.
+ * @note This variant lives in namespace tcc and refers to every engine type by
+ * its fully qualified pain:: name, so it can coexist with the archetype system
+ * inside the same binary.
  *
  * @note As with any system, the callback execution is only enabled because the
  * system inherits the corresponding interface:
@@ -54,39 +53,39 @@
 #include "Physics/Collision/Collider.h"
 #include "Physics/MovementComponent.h"
 #include "SparseSetAlternatives/Systems.h"
+#include <pain.h>
 
-namespace tcc
-{
-namespace Systems
+namespace tcc::Systems
 {
 
 namespace detail
 {
 void _implOnUpdate(
-    DeltaTime deltaTime,
-    reg::View<Transform2dComponent, ColliderComponent> viewStatic,
-    reg::View<Transform2dComponent, ColliderComponent, Movement2dComponent>
+    pain::DeltaTime deltaTime,
+    reg::View<pain::Transform2dComponent, pain::ColliderComponent> viewStatic,
+    reg::View<pain::Transform2dComponent, pain::ColliderComponent,
+              pain::Movement2dComponent>
         viewDynamic,
     reg::EventDispatcher &eventDispatcher);
-void narrowPhaseCollisionStatic(          //
-    Transform2dComponent &t_i,            //
-    ColliderComponent &c_i,               //
-    Movement2dComponent &m_i,             //
-    reg::Entity entity_i,                 //
-    const Transform2dComponent &t_j,      //
-    const ColliderComponent &c_j,         //
-    reg::Entity entity_j,                 //
-    reg::EventDispatcher &eventDispatcher //
+void narrowPhaseCollisionStatic(           //
+    pain::Transform2dComponent &t_i,       //
+    pain::ColliderComponent &c_i,          //
+    pain::Movement2dComponent &m_i,        //
+    reg::Entity entity_i,                  //
+    const pain::Transform2dComponent &t_j, //
+    const pain::ColliderComponent &c_j,    //
+    reg::Entity entity_j,                  //
+    reg::EventDispatcher &eventDispatcher  //
 );
 
 void narrowPhaseCollision(                //
-    Transform2dComponent &t_i,            //
-    ColliderComponent &c_i,               //
-    Movement2dComponent &m_i,             //
+    pain::Transform2dComponent &t_i,      //
+    pain::ColliderComponent &c_i,         //
+    pain::Movement2dComponent &m_i,       //
     reg::Entity entity_i,                 //
-    Transform2dComponent &t_j,            //
-    ColliderComponent &c_j,               //
-    Movement2dComponent &m_j,             //
+    pain::Transform2dComponent &t_j,      //
+    pain::ColliderComponent &c_j,         //
+    pain::Movement2dComponent &m_j,       //
     reg::Entity entity_j,                 //
     reg::EventDispatcher &eventDispatcher //
 );
@@ -131,9 +130,9 @@ struct NaiveCollisionSys : public System<CM>, public IOnUpdate {
    *  - Movement2dComponent
    *  - ColliderComponent
    */
-  using Tags = TypeList<Transform2dComponent, //
-                        Movement2dComponent,  //
-                        ColliderComponent>;
+  using Tags = TypeList<pain::Transform2dComponent, //
+                        pain::Movement2dComponent,  //
+                        pain::ColliderComponent>;
 
   /** @brief Inherit base System constructors. */
   using System<CM>::System;
@@ -152,18 +151,18 @@ struct NaiveCollisionSys : public System<CM>, public IOnUpdate {
    * @note This method is invoked only because the system inherits from
    * IOnUpdate.
    */
-  void onUpdate(DeltaTime deltaTime) override
+  void onUpdate(pain::DeltaTime deltaTime) override
   {
     PROFILE_SCOPE("CollisionNaiveSys - onUpdate")
     detail::_implOnUpdate(
         deltaTime,
-        this->template view<Transform2dComponent, ColliderComponent>(
-            exclude<Movement2dComponent>),
-        this->template view<Transform2dComponent, ColliderComponent,
-                            Movement2dComponent>(),
+        this->template view<pain::Transform2dComponent,
+                            pain::ColliderComponent>(
+            exclude<pain::Movement2dComponent>),
+        this->template view<pain::Transform2dComponent, pain::ColliderComponent,
+                            pain::Movement2dComponent>(),
         this->m_eventDispatcher);
   }
 };
 
-} // namespace Systems
-} // namespace tcc
+} // namespace tcc::Systems

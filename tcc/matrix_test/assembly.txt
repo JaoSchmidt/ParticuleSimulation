@@ -1,0 +1,42 @@
+columnWise:
+        mov     QWORD PTR [rbp-24], 0 	 // starts loop with `size_t j = 0`
+        jmp     .L6
+.L9:
+        mov     QWORD PTR [rbp-32], 0 	 // start inside loop with `size_t i = 0`
+        jmp     .L7
+.L8:
+        mov     rax, QWORD PTR [rbp-32]  // get i
+        imul    rdx, rax, 20000 	 // mult with 20000, storing i * 20000
+        mov     rax, QWORD PTR [rbp-24]  // get j
+        add     rax, rdx		 // sum j with i * 20000	
+        lea     rdx, [0+rax*4]		 // calculates address inside A
+        mov     rax, QWORD PTR [rbp-40]	 // get address of A
+        add     rax, rdx		 // calculates absolute address inside A
+        movss   xmm0, DWORD PTR [rax]	 // moves element value (1) to xmm0
+        movss   xmm1, DWORD PTR [rbp-12] // moves result variable to xmm1	
+        addss   xmm0, xmm1		 // makes the sum result + 1
+        movss   DWORD PTR [rbp-12], xmm0 // moves result + 1 to result 	 
+        add     QWORD PTR [rbp-32], 1	 // makes i + 1
+.L7:
+        cmp     QWORD PTR [rbp-32], 19999 // compares i < N
+        jbe     .L8			  // if i < N, jumps to .L8
+        add     QWORD PTR [rbp-24], 1	  // makes j + 1
+.L6:
+        cmp     QWORD PTR [rbp-24], 19999 // compares j < N
+        jbe     .L9			  // if i < N, jumps to .L8
+	// [..] leaves for loop	
+
+
+rowWise
+        mov     rax, QWORD PTR [rbp-24]  // get i
+        imul    rdx, rax, 20000  	 // mult with 20000, storing i * 20000
+        mov     rax, QWORD PTR [rbp-32]  // get j
+        add     rax, rdx		 // sum j with i * 20000	
+        lea     rdx, [0+rax*4]		 // calculates address inside A
+        mov     rax, QWORD PTR [rbp-40]	 // get address of A
+        add     rax, rdx		 // calculates absolute address inside A
+        movss   xmm0, DWORD PTR [rax]	 // moves element value (1) to xmm0
+        movss   xmm1, DWORD PTR [rbp-12] // moves result variable to xmm1	
+        addss   xmm0, xmm1		 // makes the sum result + 1
+        movss   DWORD PTR [rbp-12], xmm0 // moves result + 1 to result 	 
+        add     QWORD PTR [rbp-32], 1	 // i + 1

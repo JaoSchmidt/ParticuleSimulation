@@ -9,11 +9,7 @@
 #include "Debugging/Profiling.h"
 #include "ECS/Components/NativeScript.h"
 
-namespace tcc
-{
-namespace Systems
-{
-namespace detail
+namespace tcc::Systems::detail
 {
 
 void _implOnUpdate(pain::DeltaTime deltaTime,
@@ -51,6 +47,4 @@ void _implOnRender(pain::RenderApi &renderAPI, pain::DeltaTime currentTime,
   });
 }
 
-} // namespace detail
-} // namespace Systems
-} // namespace tcc
+} // namespace tcc::Systems::detail

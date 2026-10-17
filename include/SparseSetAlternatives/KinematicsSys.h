@@ -39,10 +39,9 @@
 #include "Physics/MovementComponent.h"
 #include "Physics/RotationComponent.h"
 #include "SparseSetAlternatives/Systems.h"
+#include <pain.h>
 
-namespace tcc
-{
-namespace Systems
+namespace tcc::Systems
 {
 
 namespace detail
@@ -55,9 +54,11 @@ namespace detail
  * and the work moves into the lambda passed to View::forEach.
  */
 void _implOnUpdate(
-    DeltaTime deltaTime, reg::View<RotationComponent> viewRotation,
-    reg::View<Transform2dComponent, Movement2dComponent> viewMovement2d,
-    reg::View<Transform3dComponent, Movement3dComponent> viewMovement3d);
+    pain::DeltaTime deltaTime, reg::View<pain::RotationComponent> viewRotation,
+    reg::View<pain::Transform2dComponent, pain::Movement2dComponent>
+        viewMovement2d,
+    reg::View<pain::Transform3dComponent, pain::Movement3dComponent>
+        viewMovement3d);
 } // namespace detail
 
 /**
@@ -91,7 +92,7 @@ struct Kinematics : public System<CM>, IOnUpdate {
    *
    * RotationComponent is queried independently during update.
    */
-  using Tags = TypeList<Transform2dComponent, Movement2dComponent>;
+  using Tags = TypeList<pain::Transform2dComponent, pain::Movement2dComponent>;
 
   /** @brief Inherit base System constructors. */
   using System<CM>::System;
@@ -111,14 +112,15 @@ struct Kinematics : public System<CM>, IOnUpdate {
    * @note This method is invoked only because the system inherits from
    * IOnUpdate.
    */
-  void onUpdate(DeltaTime deltaTime) override
+  void onUpdate(pain::DeltaTime deltaTime) override
   {
-    detail::_implOnUpdate(
-        deltaTime, this->template view<RotationComponent>(),
-        this->template view<Transform2dComponent, Movement2dComponent>(),
-        this->template view<Transform3dComponent, Movement3dComponent>());
+    detail::_implOnUpdate(deltaTime,
+                          this->template view<pain::RotationComponent>(),
+                          this->template view<pain::Transform2dComponent,
+                                              pain::Movement2dComponent>(),
+                          this->template view<pain::Transform3dComponent,
+                                              pain::Movement3dComponent>());
   }
 };
 
-} // namespace Systems
-} // namespace tcc
+} // namespace tcc::Systems
