@@ -12,7 +12,7 @@
 #include "ECS/Registry/Bitmask.h"
 #include "ECS/Registry/Entity.h"
 #include "ECS/Registry/SparseRegistry.h"
-#include "SparseSetAlternatives/Systems.h"
+#include "Systems.h"
 #include <pain.h>
 
 #include <utility>
@@ -109,37 +109,6 @@ public:
   }
 
   /**
-   * @brief Adds a single component to an existing entity. Force sparse set
-   *
-   * @tparam Components ECS component types.
-   * @param entity Target entity.
-   * @param bitmask Target final assumed bitmask
-   * @param components Component instances to add.
-   * @return Tuple of references to the added components.
-   */
-  template <reg::ECSComponent C>
-  void manualPush(reg::Entity entity, reg::Bitmask bitmask, C &&comps)
-  {
-    m_registry.manualPush(entity, bitmask, std::forward<C>(comps));
-  }
-  /**
-   * @brief Emplace a single component to an existing entity. Force sparse set
-   * Should be used only outside c++
-   *
-   * @tparam Components ECS component types.
-   * @param entity Target entity.
-   * @param bitmask Target final assumed bitmask
-   * @param components Component instances to add.
-   * @return Tuple of references to the added components.
-   */
-  template <reg::ECSComponent C, typename... Args>
-  void manualEmplace(reg::Entity entity, reg::Bitmask bitmask, Args &&...args)
-  {
-    m_registry.template manualEmplace<C>(entity, bitmask,
-                                         std::forward<Args>(args)...);
-  }
-
-  /**
    * @brief Adds multiple components to an existing entity.
    *
    * @tparam Components ECS component types.
@@ -166,14 +135,14 @@ public:
   }
 
   /**
-   * @brief Queries sparse sets containing the given components.
+   * @brief Builds a view over sparse sets containing the given components.
    *
    * @tparam Components Required component types.
    * @tparam ExcludeComponents Component types to exclude.
-   * @return Vector of chunk views matching the query.
+   * @return A single view over every entity owning the required components.
    */
   template <reg::ECSComponent... Components, typename... ExcludeComponents>
-  inline std::vector<reg::View<Components...>>
+  inline reg::View<Components...>
   view(exclude_t<ExcludeComponents...> = {})
   {
     return m_registry.template view<Components...>(
@@ -182,7 +151,7 @@ public:
 
   /// @brief Const version of view().
   template <reg::ECSComponent... Components, typename... ExcludeComponents>
-  inline std::vector<reg::View<const Components...>>
+  inline reg::View<Components...>
   viewConst(exclude_t<ExcludeComponents...> = {}) const
   {
     return m_registry.template viewConst<Components...>(
