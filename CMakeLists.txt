@@ -41,8 +41,10 @@ set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD 20
 if(MSVC AND CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_options(${TARGET_NAME} PRIVATE /W4 /std:c++20 /Zi /bigobj)
   set_target_properties(${TARGET_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
-else()
+elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_options(${TARGET_NAME} PRIVATE -g -std=c++20 -Wall -Wextra)
+else()
+  target_compile_options(${TARGET_NAME} PRIVATE -std=c++20 -Wall -Wextra)
 endif()
 
 # =========== Pain Engine Integration ==================================
@@ -51,6 +53,21 @@ target_link_libraries(
   ${TARGET_NAME} PUBLIC Pain #
                         Painless #
 )
+
+# =========== Application Backend ==================================
+# Choose which application main.cpp builds and runs. ON  -> sparse set
+# application (tcc::Application, default) OFF -> archetype application
+# (pain::Application)
+option(PARTICLE_SIM_USE_SPARSE_SET
+       "Build the sparse set application instead of the archetype one" ON)
+
+if(PARTICLE_SIM_USE_SPARSE_SET)
+  target_compile_definitions(${TARGET_NAME}
+                             PRIVATE PARTICLE_SIM_USE_SPARSE_SET=1)
+else()
+  target_compile_definitions(${TARGET_NAME}
+                             PRIVATE PARTICLE_SIM_USE_SPARSE_SET=0)
+endif()
 
 # =========== Resources Management ==================================
 # Define the resources directory for your game

@@ -63,16 +63,18 @@ namespace detail
  */
 void _implOnRender(
     pain::RenderApi &renderer, pain::DeltaTime currentTime,
-    reg::View<pain::Transform2dComponent, pain::SpriteComponent,
-              pain::RotationComponent, pain::MaterialComponent>
+    reg::View<const pain::Transform2dComponent, const pain::SpriteComponent,
+              const pain::RotationComponent, const pain::MaterialComponent>
         viewRotation,
-    reg::View<pain::Transform2dComponent, pain::SpriteComponent,
-              pain::MaterialComponent>
+    reg::View<const pain::Transform2dComponent, const pain::SpriteComponent,
+              const pain::MaterialComponent>
         viewTexture,
-    reg::View<pain::Transform2dComponent, pain::SpriteComponent,
-              pain::ColorIndexComponent, pain::MaterialComponent>
+    reg::View<const pain::Transform2dComponent, const pain::SpriteComponent,
+              const pain::ColorIndexComponent, const pain::MaterialComponent>
         viewColored,
-    reg::View<pain::Transform2dComponent, pain::TextComponent> viewText);
+    reg::View<const pain::Transform2dComponent, const pain::TextComponent>
+        viewText //
+);
 } // namespace detail
 
 /**

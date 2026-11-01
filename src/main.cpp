@@ -1,11 +1,146 @@
 #include <pain.h>
 #include <painless.h>
 
-#include "SimulationModeSwitch.h"
+#include "CustomPanel.h"
+#include "OrthoCamera.h"
+#include "ParticleSimulation.h"
+#include "SparseSetAlternatives/Application.h"
+#include "SparseSetAlternatives/tcc.h"
 #include "aliasesSystems.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 
+#ifndef PARTICLE_SIM_USE_SPARSE_SET
+#define PARTICLE_SIM_USE_SPARSE_SET 1
+#endif
+
+namespace
+{
+/// @brief Creates the camera, the materials and the wall geometry: everything
+///        all simulations share.
+template <typename SceneT>
+SimulationAssets createSimulationAssets(SceneT &scene,
+                                        pain::RenderApi &renderAPI,
+                                        const pain::AppInit &cfg)
+{
+  SimulationAssets assets;
+
+  assets.m_camera = DummyCamera::createStaticCamera(
+      scene, cfg.defaultWidth, cfg.defaultHeight, cfg.defaultZoom2d);
+
+  assets.m_wallMaterial = &renderAPI.m_materialManager.createMaterial(
+      {.name = "Wall Material", //
+       .color = pain::Colors::PastelBlue,
+       .shader = renderAPI.m_shaderManager.getDefaultShader(
+           pain::DefaultShader::Texture)});
+
+  // Asteroids ----------------------------------------------------------------
+  pain::TextureSheet &asteroidSheet =
+      pain::TextureManager::createTexSheetWithDivisions(
+          "asteroids", "resources/textures/asteroid-lite.png", 7, 1,
+          {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}} //
+      );
+  pain::Color asteroidColor = pain::Colors::PastelBlue;
+  pain::Shader &asteroidShader =
+      renderAPI.m_shaderManager.getDefaultShader(pain::DefaultShader::Texture);
+  auto asteroidTex = [&asteroidSheet](unsigned short id) {
+    bool useSimpleTex = false;
+    if (useSimpleTex)
+      return pain::TextureVariant{&pain::TextureManager::getDefaultTexture(
+          pain::TextureManager::DefaultTexture::General)};
+    return pain::TextureVariant{pain::SheetStruct{&asteroidSheet, id}};
+  };
+
+  /// Each asterioid has its own material, they share the shader, but differ in
+  /// texture
+  std::array<pain::Material *, 7> asteroidMaterials = {
+      &renderAPI.m_materialManager.createMaterial(
+          {.name = "Asteroid Material 1", //
+           .color = asteroidColor,        //
+           .shader = asteroidShader,
+           .texture = asteroidTex(0)}),
+      &renderAPI.m_materialManager.createMaterial(
+          {.name = "Asteroid Material 2", //
+           .color = asteroidColor,        //
+           .shader = asteroidShader,
+           .texture = asteroidTex(1)}),
+      &renderAPI.m_materialManager.createMaterial(
+          {.name = "Asteroid Material 3", //
+           .color = asteroidColor,        //
+           .shader = asteroidShader,
+           .texture = asteroidTex(2)}),
+      &renderAPI.m_materialManager.createMaterial(
+          {.name = "Asteroid Material 4", //
+           .color = asteroidColor,        //
+           .shader = asteroidShader,
+           .texture = asteroidTex(3)}),
+      &renderAPI.m_materialManager.createMaterial(
+          {.name = "Asteroid Material 5", //
+           .color = asteroidColor,        //
+           .shader = asteroidShader,
+           .texture = asteroidTex(4)}),
+      &renderAPI.m_materialManager.createMaterial(
+          {.name = "Asteroid Material 6", //
+           .color = asteroidColor,        //
+           .shader = asteroidShader,
+           .texture = asteroidTex(5)}),
+      &renderAPI.m_materialManager.createMaterial(
+          {.name = "Asteroid Material 7", //
+           .color = asteroidColor,        //
+           .shader = asteroidShader,
+           .texture = asteroidTex(6)}) //
+  };
+  assets.m_asteroidMaterials.assign(asteroidMaterials.begin(),
+                                    asteroidMaterials.end());
+
+  // Walls ---------------------------------------------------------------------
+  assets.m_walls = {{glm::vec2(0.F, 2.F), glm::vec2(10.F, 1.F)}, //
+                    {glm::vec2(3.F, 0.F), glm::vec2(1.F, 10.F)},
+                    {glm::vec2(-3.F, 0.F), glm::vec2(1.F, 10.F)},
+                    {glm::vec2(0.F, -2.F), glm::vec2(10.F, 1.F)}};
+
+  return assets;
+}
+} // namespace
+
+#if PARTICLE_SIM_USE_SPARSE_SET
+tcc::Application *createSparseSetApplicattion()
+{
+  // Retrieve the context the player will alter when using the launcher
+  pain::IniConfig ini;
+  ini.readAndUpdate();
+
+  // Retrieve the app context defined inside "resources/InternalConfig.ini"
+  pain::InternalConfig internalIni;
+  internalIni.readAndUpdate(ini.assetsPath.value);
+  // Create the application + OpenGL + Event contexts
+  tcc::Application *app = tcc::Application::createApplication( //
+      {
+          .title = internalIni.title.get().c_str(),     //
+          .defaultWidth = ini.defaultWidth.get(),       //
+          .defaultHeight = ini.defaultHeight.get(),     //
+          .defaultZoom2d = internalIni.zoomLevel.get(), //
+          .fullWindow = ini.fullwindow.get(),           //
+          .fullScreen = ini.fullscreen.get(),           //
+          .gridCellSize = internalIni.gridSize.get(),
+      },
+      {.swapChainTarget = true} // sparse set has no editor
+  );
+
+  // Create the ECS World Scene and its systems
+  tcc::SparseSetScene &scene = Sys::declareSparseSetSystems(app);
+
+  // The simulation flavour is chosen at compile time: change Simulation::mode
+  // in ParticleSimulation.h and rebuild to run the other implementation.
+  SimulationAssets assets = createSimulationAssets(scene, app->getRenderApi(),
+                                                   app->getCurrentConfig());
+  ParticleSimulationBase *simulation =
+      &ParticleSimulationSparseSet::createScriptScene(
+          scene, assets, static_cast<int>(Simulation::asteroidAmount));
+
+  return app;
+}
+#else
 pain::Application *pain::createApplication()
 {
   // Retrieve the context the player will alter when using the launcher
@@ -33,9 +168,25 @@ pain::Application *pain::createApplication()
   // Create the ECS World Scene and its systems
   pain::Scene &scene = Sys::declareArchetypeSystems(app);
 
-  // The switcher owns the shared assets, starts the default flavour and takes
-  // over the "Simulation" panel, from where the other one can be selected.
-  SimulationModeSwitch::create(scene, app, SimulationModeSwitch::defaultMode);
+  // The simulation flavour is chosen at compile time: change Simulation::mode
+  // in ParticleSimulation.h and rebuild to run the other implementation.
+  SimulationAssets assets = createSimulationAssets(scene, app->getRenderApi(),
+                                                   app->getCurrentConfig());
+  ParticleSimulationBase *simulation = nullptr;
+  if constexpr (Simulation::mode == SimulationMode::Ecs) {
+    simulation = &ParticleSimulationArchetype::createScriptScene(
+        scene, assets, static_cast<int>(Simulation::asteroidAmount));
+  } else {
+    LOG_I("Actually using object mode instead of Archetype mode");
+    simulation = &ParticleSimulationObj::createScriptScene(
+        scene, assets, static_cast<int>(Simulation::asteroidAmount));
+  }
+  // The simulation owns the "Simulation" panel so its controls can be tweaked
+  // at runtime without changing the flavour that is compiled in.
+  painless::customPanel::registerPanel("Simulation", 1.F,
+                                       painless::InterfaceMenu::SIDEBAR);
+  painless::customPanel::addToPanel(
+      "Simulation", [simulation]() { simulation->renderControls(); });
 
   // (Optional) Creating the ECS UI scene
   UIScene &uiScene = app->createUIScene();
@@ -47,6 +198,7 @@ pain::Application *pain::createApplication()
   // System::NativeScript
   return app;
 }
+#endif
 
 #ifdef PLATFORM_IS_LINUX
 int main(int argc, char *argv[])
@@ -62,9 +214,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
     pain::Application *app = painless::createLauncher();
     flags = pain::Pain::runAndDeleteApplication(app);
   }
+#if PARTICLE_SIM_USE_SPARSE_SET
+  LOG_I("Using Sparse Sets registries");
+  while (flags.restartGame) {
+    tcc::Application *app = createSparseSetApplicattion();
+    flags = tcc::Tcc::runAndDeleteApplication(app);
+  }
+#else
+  LOG_I("Using Archetypes registries");
   while (flags.restartGame) {
     pain::Application *app = pain::createApplication();
     flags = pain::Pain::runAndDeleteApplication(app);
   }
+#endif
   return 0;
 }

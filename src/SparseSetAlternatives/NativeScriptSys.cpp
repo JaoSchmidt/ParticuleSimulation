@@ -13,11 +13,11 @@ namespace tcc::Systems::detail
 {
 
 void _implOnUpdate(pain::DeltaTime deltaTime,
-                   reg::View<pain::NativeScriptComponent> viewScripts)
+                   reg::View<tcc::NativeScriptComponent> viewScripts)
 {
   PROFILE_SCOPE("Scene::updateSystems - native scripts");
 
-  viewScripts.forEach([&](pain::NativeScriptComponent &nsc) {
+  viewScripts.forEach([&](tcc::NativeScriptComponent &nsc) {
     if (nsc.instance && nsc.onUpdateFunction) {
       nsc.onUpdateFunction(nsc.instance.get(), deltaTime);
     }
@@ -25,9 +25,9 @@ void _implOnUpdate(pain::DeltaTime deltaTime,
 }
 
 void _implOnEvent(const SDL_Event &e,
-                  reg::View<pain::NativeScriptComponent> viewScripts)
+                  reg::View<tcc::NativeScriptComponent> viewScripts)
 {
-  viewScripts.forEach([&](pain::NativeScriptComponent &nsc) {
+  viewScripts.forEach([&](tcc::NativeScriptComponent &nsc) {
     if (nsc.instance && nsc.onEventFunction) {
       nsc.onEventFunction(nsc.instance.get(), e);
     }
@@ -35,12 +35,12 @@ void _implOnEvent(const SDL_Event &e,
 }
 
 void _implOnRender(pain::RenderApi &renderAPI, pain::DeltaTime currentTime,
-                   reg::View<pain::NativeScriptComponent> viewScripts)
+                   reg::View<tcc::NativeScriptComponent> viewScripts)
 {
   UNUSED(renderAPI);
   PROFILE_SCOPE("Scene::renderSystems - NativeScripts");
 
-  viewScripts.forEach([&](pain::NativeScriptComponent &nsc) {
+  viewScripts.forEach([&](tcc::NativeScriptComponent &nsc) {
     if (nsc.instance && nsc.onRenderFunction) {
       nsc.onRenderFunction(nsc.instance.get(), renderAPI, currentTime);
     }

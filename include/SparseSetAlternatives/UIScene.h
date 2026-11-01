@@ -15,7 +15,7 @@ namespace tcc
  *        driven components.
  *
  * SparseSetUIScene is a thin wrapper over AlternativeScene using the
- * pain::UIComponents registry configuration. It centralizes:
+ * UIComponents registry configuration. It centralizes:
  *  - UI entity management.
  *  - ImGui native script binding and lifetime management.
  *  - UI-specific systems and rendering flow.
@@ -24,15 +24,15 @@ namespace tcc
  * and may coexist alongside other scene types (e.g. world scenes) with
  * isolated registries and systems.
  */
-class SparseSetUIScene : public AlternativeScene<pain::UIComponents>
+class SparseSetUIScene : public AlternativeScene<UIComponents>
 {
   template <typename... Ts> struct AreAllTagsRegistered;
   template <typename... Ts> struct AreAllTagsRegistered<TypeList<Ts...>> {
-    static constexpr bool value = pain::UIComponents::allRegistered<Ts...>();
+    static constexpr bool value = UIComponents::allRegistered<Ts...>();
   };
 
 public:
-  using AlternativeScene<pain::UIComponents>::AlternativeScene;
+  using AlternativeScene<UIComponents>::AlternativeScene;
 
   /**
    * @brief Creates a SparseSetUIScene instance with the required engine
@@ -52,9 +52,9 @@ public:
    *
    * System must:
    *  - be constructible
-   *  - inherit the class Systems<pain::UIComponents>
+   *  - inherit the class Systems<UIComponents>
    *  - have at least one system interface: IOnUpdate, IOnEvent, IOnRender
-   *  - use components registered inside pain::UIComponents
+   *  - use components registered inside UIComponents
    *
    * If the system already exists, insertion is ignored and a warning is logged.
    *
@@ -64,10 +64,10 @@ public:
    */
   template <typename Sys, typename... Args>
     requires std::is_constructible_v<Sys,
-                                     reg::ArcheRegistry<pain::UIComponents> &,
+                                     reg::ArcheRegistry<UIComponents> &,
                                      reg::EventDispatcher &, Args...> &&
              std::constructible_from<Sys,
-                                     reg::ArcheRegistry<pain::UIComponents> &,
+                                     reg::ArcheRegistry<UIComponents> &,
                                      reg::EventDispatcher &, Args...> &&
              ValidSystem<Sys> && AreAllTagsRegistered<typename Sys::Tags>::value
   void addSystem(Args &&...args)

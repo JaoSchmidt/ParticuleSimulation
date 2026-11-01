@@ -1,9 +1,11 @@
 // Asteroid.cpp
 #include "Asteroid.h"
+#include "SparseSetAlternatives/WorldScene.h"
 #include <pain.h>
 
-reg::Entity Asteroid::createECS(pain::Scene &scene, pain::Material &m,
-                                glm::vec2 pos, glm::vec2 vel, float radius)
+template <typename SceneT>
+reg::Entity Asteroid::createECS(SceneT &scene, pain::Material &m, glm::vec2 pos,
+                                glm::vec2 vel, float radius)
 {
   // assuming size of quad sprite = diameter
   reg::Entity entity = scene.createEntity();
@@ -18,6 +20,13 @@ reg::Entity Asteroid::createECS(pain::Scene &scene, pain::Material &m,
   );
   return entity;
 }
+
+template reg::Entity
+Asteroid::createECS<pain::Scene>(pain::Scene &scene, pain::Material &m,
+                                 glm::vec2 pos, glm::vec2 vel, float radius);
+template reg::Entity Asteroid::createECS<tcc::SparseSetScene>(
+    tcc::SparseSetScene &scene, pain::Material &m, glm::vec2 pos,
+    glm::vec2 vel, float radius);
 
 Asteroid::Object Asteroid::createObject(pain::Material &m, glm::vec2 pos,
                                         glm::vec2 vel, float radius)

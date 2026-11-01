@@ -3,7 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-
+#if 0
 #include "MousePointer.h"
 #include "ECS/Scriptable.h"
 #include "SDL_events.h"
@@ -127,3 +127,4 @@ void MousePointer::onEvent(const SDL_Event &event)
     return;
   }
 }
+#endif

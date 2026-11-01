@@ -5,7 +5,8 @@
 
 namespace Wall
 {
-reg::Entity createECS(pain::Scene &scene, const glm::vec2 &pos,
+template <typename SceneT>
+reg::Entity createECS(SceneT &scene, const glm::vec2 &pos,
                       const glm::vec2 &size, pain::Material &m);
 
 /**

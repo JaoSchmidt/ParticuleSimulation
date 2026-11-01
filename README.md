@@ -42,6 +42,36 @@ make
 
 Ensure your resources are in `./resources/` directory at your project root.
 
+### Choosing the Application Backend
+
+`src/main.cpp` can build and run one of two application backends, selected at
+configure time with the `PARTICLE_SIM_USE_SPARSE_SET` CMake option:
+
+- `ON` (default): sparse set application (`tcc::Application` / `tcc::Tcc`).
+- `OFF`: archetype application (`pain::Application` / `pain::Pain`).
+
+The option is passed to the compiler as the `PARTICLE_SIM_USE_SPARSE_SET`
+macro, so only the selected application factory and run loop are compiled.
+Changing it requires re-running the CMake configure step, not just a rebuild:
+
+```bash
+# Sparse set (default)
+cmake --preset release -DPARTICLE_SIM_USE_SPARSE_SET=ON
+cmake --build build
+
+# Archetype
+cmake --preset release -DPARTICLE_SIM_USE_SPARSE_SET=OFF
+cmake --build build
+```
+
+If you configure the whole engine from the repository root instead, pass the
+same option there and build the game target:
+
+```bash
+cmake --preset release -DPARTICLE_SIM_USE_SPARSE_SET=OFF
+cmake --build build --target Particle-Sim
+```
+
 ### 3.1 Building Variants
 
 The engine automatically manages its own resources in this case.

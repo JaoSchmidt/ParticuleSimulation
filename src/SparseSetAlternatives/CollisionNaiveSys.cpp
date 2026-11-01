@@ -4,7 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-#include "SparseSetAlternatives/NaiveCollisionSys.h"
+#include "SparseSetAlternatives/CollisionNaiveSys.h"
 
 #include "Debugging/Profiling.h"
 #include "Misc/Events.h"
@@ -158,6 +158,7 @@ void detail::_implOnUpdate(
         viewDynamic,
     reg::EventDispatcher &eventDispatcher)
 {
+  PROFILE_SCOPE("Scene::updateSystems - collision detection")
   UNUSED(deltaTime)
 
   // A View is a forEach-only cursor: it exposes no indices, no size, and cannot

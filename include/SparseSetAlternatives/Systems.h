@@ -157,7 +157,7 @@ public:
   /** @brief Const version of view(). */
   template <typename... Components, typename... ExcludeComponents>
     requires(CM::template allRegistered<Components...>())
-  inline reg::View<Components...>
+  inline reg::View<const Components...>
   viewConst(exclude_t<ExcludeComponents...> = {})
   {
     return m_registry.template viewConst<Components...>(

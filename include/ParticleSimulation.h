@@ -1,5 +1,6 @@
 #pragma once
 #include "Asteroid.h"
+#include "SparseSetAlternatives/GameObject.h"
 #include "Wall.h"
 #include <pain.h>
 #include <painless.h>
@@ -22,13 +23,23 @@ const static unsigned asteroidAmount = 200;
 const static int maxAsteroidCount = 2000;
 } // namespace Simulation
 
-/** @brief Which implementation of the simulation is currently running. */
+/** @brief Which implementation of the simulation is running. */
 enum class SimulationMode {
   Object = 0, ///< Plain C++ objects, stepped and drawn by the script itself.
   Ecs = 1     ///< Entities and components, stepped by the registered systems.
 };
 
-/** @brief One wall, in the mode independent form. */
+namespace Simulation
+{
+/** @brief The implementation built into this executable.
+ *
+ * Selected at compile time: change this value and rebuild to run the other
+ * simulation. There is no runtime switch.
+ */
+constexpr SimulationMode mode = SimulationMode::Ecs;
+} // namespace Simulation
+
+/** @brief One wall, eq to cmp::Pos2d */
 struct WallSpec {
   glm::vec2 m_position;
   glm::vec2 m_size;
@@ -36,12 +47,6 @@ struct WallSpec {
 
 /**
  * @brief Everything a simulation needs that does not depend on the mode.
- *
- * Built once by SimulationModeSwitch and handed to whichever flavour is being
- * created, so switching back and forth never rebuilds the camera, the mouse
- * pointer, the textures or the materials. All the asset managers key on a
- * name and hand back the existing entry, so sharing these is what keeps
- * repeated switching from piling up duplicates.
  */
 struct SimulationAssets {
   reg::Entity m_camera = reg::Entity{0};
@@ -52,16 +57,18 @@ struct SimulationAssets {
 };
 
 /**
- * @brief The slice of a simulation that SimulationModeSwitch drives.
+ * @brief The slice of a simulation that is bound to the scene's root entity.
  *
- * We only ever holds one of these
+ * Only one of these is ever alive; which one is decided at compile time.
  */
-class ParticleSimulationBase : public pain::WorldObject
+class ParticleSimulationBase
 {
 
 public:
-  ParticleSimulationBase(reg::Entity entity, pain::Scene &scene)
-      : pain::WorldObject(entity, scene) {};
+  ParticleSimulationBase(reg::Entity orthocamera,                           //
+                         std::vector<pain::Material *> &&asteroidMaterials) //
+      : m_orthoCamera(orthocamera),                                         //
+        m_asteroidMaterials(std::move(asteroidMaterials)) {};
   virtual ~ParticleSimulationBase() = default;
 
   /// @brief Respawns every asteroid from the shared seed, keeping the count.
@@ -69,49 +76,13 @@ public:
   /// @brief Resizes the simulation to @p count asteroids and respawns them.
   virtual void setAsteroidCount(int count) = 0;
   /// @brief How many asteroids this flavour is currently simulating.
-  ///
-  /// The switcher carries the count across a swap, so the population does not
-  /// jump back to the default every time the mode changes.
   virtual int asteroidCount() const = 0;
   /// @brief Draws the controls that drive this flavour.
   virtual void renderControls() = 0;
 
-  /// @brief Releases what this flavour left in the world registry, if anything.
-  ///
-  /// Called by SimulationModeSwitch while this object is still alive, right
-  /// before the replacement simulation is bound over it. The object flavour
-  /// keeps everything in plain members and has nothing to give back; the ECS
-  /// flavour owns entities and has to remove them.
-  virtual void releaseWorldResources() {};
-};
-
-class ParticleSimulationObj : public ParticleSimulationBase
-{
-
-public:
-  static ParticleSimulationObj &
-  createScriptScene(pain::Scene &scene, const SimulationAssets &assets,
-                    int startAsteroidCount);
-  ParticleSimulationObj(reg::Entity entity, pain::Scene &scene,
-                        reg::Entity orthocamera,
-                        std::vector<Asteroid::Object> &&asteroid,
-                        std::vector<Wall::Object> &&walls, reg::Entity mp,
-                        std::vector<pain::Material *> &&asteroidMaterials);
-
-  void onUpdate(pain::DeltaTime dt);
-  void onRender(pain::RenderApi &rs, pain::DeltaTime currentTime);
-
-  void setAsteroidCount(int count) override;
-  void resetSimulation() override;
-  int asteroidCount() const override { return m_asteroidCount; }
-  void renderControls() override;
-
   std::vector<std::vector<int>> m_backgroundMap;
   std::shared_ptr<pain::Shader> m_texture_shader;
-  reg::Entity m_mousePointer;
   reg::Entity m_orthoCamera;
-  std::vector<Asteroid::Object> m_asteroids;
-  std::vector<Wall::Object> m_walls;
   /// @brief Kept so resetSimulation() can respawn without the material
   ///        manager's lookups happening again.
   std::vector<pain::Material *> m_asteroidMaterials;
@@ -121,37 +92,77 @@ public:
   const static unsigned asteroidAmount = Simulation::asteroidAmount;
 };
 
-class ParticleSimulationArchetype : public ParticleSimulationBase
+class ParticleSimulationObj : public pain::WorldObject,
+                              public ParticleSimulationBase
+
 {
 
 public:
-  static ParticleSimulationArchetype &
+  static ParticleSimulationObj &
   createScriptScene(pain::Scene &scene, const SimulationAssets &assets,
                     int startAsteroidCount);
-  ParticleSimulationArchetype(reg::Entity entity, pain::Scene &scene,
+  ParticleSimulationObj(reg::Entity entity, pain::Scene &scene,
                         reg::Entity orthocamera,
-                        std::vector<reg::Entity> &&asteroid,
-                        std::vector<reg::Entity> &&walls, reg::Entity mp,
+                        std::vector<Asteroid::Object> &&asteroid,
+                        std::vector<Wall::Object> &&walls,
                         std::vector<pain::Material *> &&asteroidMaterials);
+
+  void onEvent(const SDL_Event &e);
+  void onUpdate(pain::DeltaTime dt);
+  void onRender(pain::RenderApi &rs, pain::DeltaTime currentTime);
 
   void setAsteroidCount(int count) override;
   void resetSimulation() override;
   int asteroidCount() const override { return m_asteroidCount; }
   void renderControls() override;
-  /// @brief Removes the wall and asteroid entities this flavour created.
-  void releaseWorldResources() override;
+  std::vector<Asteroid::Object> m_asteroids;
+  std::vector<Wall::Object> m_walls;
+  int m_profileFramesUntilClose = 0;
+};
 
-  std::vector<std::vector<int>> m_backgroundMap;
-  std::shared_ptr<pain::Shader> m_texture_shader;
-  reg::Entity m_mousePointer;
-  reg::Entity m_orthoCamera;
+class ParticleSimulationArchetype : public pain::WorldObject,
+                                    public ParticleSimulationBase
+
+{
+public:
+  static ParticleSimulationArchetype &
+  createScriptScene(pain::Scene &scene, const SimulationAssets &assets,
+                    int startAsteroidCount);
+  ParticleSimulationArchetype(
+      reg::Entity entity, pain::Scene &scene, reg::Entity orthocamera,
+      std::vector<reg::Entity> &&asteroid, std::vector<reg::Entity> &&walls,
+      std::vector<pain::Material *> &&asteroidMaterials);
+
+  void setAsteroidCount(int count) override;
+  void resetSimulation() override;
+  int asteroidCount() const override { return m_asteroidCount; }
+  void renderControls() override;
+  void onEvent(const SDL_Event &e);
+  void onUpdate(pain::DeltaTime dt);
   std::vector<reg::Entity> m_asteroids;
   std::vector<reg::Entity> m_walls;
-  /// @brief Kept so resetSimulation() can create the entities a larger amount
-  ///        asks for without rebuilding the materials.
-  std::vector<pain::Material *> m_asteroidMaterials;
-  int m_asteroidCount = Simulation::asteroidAmount;
-  // Player m_player;
-  const static unsigned starAmout = 0;
-  const static unsigned asteroidAmount = Simulation::asteroidAmount;
+  int m_profileFramesUntilClose = 0;
+};
+
+class ParticleSimulationSparseSet : public SparseSetObject,
+                                    public ParticleSimulationBase
+{
+public:
+  static ParticleSimulationSparseSet &
+  createScriptScene(tcc::SparseSetScene &scene, const SimulationAssets &assets,
+                    int startAsteroidCount);
+  ParticleSimulationSparseSet(
+      reg::Entity entity, tcc::SparseSetScene &scene, reg::Entity orthocamera,
+      std::vector<reg::Entity> &&asteroid, std::vector<reg::Entity> &&walls,
+      std::vector<pain::Material *> &&asteroidMaterials);
+
+  void setAsteroidCount(int count) override;
+  void resetSimulation() override;
+  int asteroidCount() const override { return m_asteroidCount; }
+  void renderControls() override;
+  void onEvent(const SDL_Event &e);
+  void onUpdate(pain::DeltaTime dt);
+  std::vector<reg::Entity> m_asteroids;
+  std::vector<reg::Entity> m_walls;
+  int m_profileFramesUntilClose = 0;
 };

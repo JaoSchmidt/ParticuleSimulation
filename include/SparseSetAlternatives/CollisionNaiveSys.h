@@ -5,7 +5,7 @@
  */
 
 /**
- * @file NaiveCollisionSys.h
+ * @file CollisionNaiveSys.h
  * @brief Sparse set alternative of the archetype brute-force collision system.
  *
  * This is the same system as Physics/Collision/CollisionNaiveSys.h, ported from

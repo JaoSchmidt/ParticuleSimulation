@@ -215,14 +215,7 @@ private:
   EndGameFlags run();
   EndGameFlags m_endGameFlags = {};
 
-  friend struct Pain;
+  friend struct Tcc;
 };
-
-/**
- * @brief User-defined factory function implemented by the client application.
- *
- * Must return a newly created Application instance.
- */
-Application *createApplication();
 
 } // namespace tcc

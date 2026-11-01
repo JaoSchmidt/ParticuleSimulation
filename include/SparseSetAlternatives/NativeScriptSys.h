@@ -24,9 +24,12 @@
  * this folder; they are distinct overloads and are kept identical to the
  * archetype version on purpose.
  *
- * @note This variant lives in namespace tcc and refers to every engine type by
- * its fully qualified pain:: name, so it can coexist with the archetype system
- * inside the same binary.
+ * @note This variant lives in namespace tcc, refers to engine types by their
+ * fully qualified pain:: name, and dispatches through tcc::NativeScriptComponent
+ * instead of pain::NativeScriptComponent: the engine component can only own
+ * scripts built on pain::Scene, while this one owns SparseSetObject scripts. So
+ * it can coexist with the archetype system inside the same binary without the
+ * two components ever competing for the same entity.
  *
  * @note As with any system, the callback execution is only enabled because the
  * system inherits the corresponding interface:
@@ -38,6 +41,7 @@
 #pragma once
 #include "Assets/DeltaTime.h"
 #include "ECS/Components/ComponentManager.h"
+#include "SparseSetAlternatives/NativeScriptComponent.h"
 #include "SparseSetAlternatives/Systems.h"
 #include <pain.h>
 
@@ -47,11 +51,11 @@ namespace tcc::Systems
 namespace detail
 {
 void _implOnUpdate(pain::DeltaTime deltaTime,
-                   reg::View<pain::NativeScriptComponent> viewScripts);
+                   reg::View<tcc::NativeScriptComponent> viewScripts);
 void _implOnEvent(const SDL_Event &e,
-                  reg::View<pain::NativeScriptComponent> viewScripts);
+                  reg::View<tcc::NativeScriptComponent> viewScripts);
 void _implOnRender(pain::RenderApi &renderAPI, pain::DeltaTime currentTime,
-                   reg::View<pain::NativeScriptComponent> viewScripts);
+                   reg::View<tcc::NativeScriptComponent> viewScripts);
 } // namespace detail
 
 /**
@@ -86,7 +90,7 @@ struct NativeScript : public System<CM>, IOnUpdate, IOnEvent, IOnRender {
    * NativeScriptComponent. This tag list is validated at compile time when
    * inserting the system into a scene.
    */
-  using Tags = TypeList<pain::NativeScriptComponent>;
+  using Tags = TypeList<tcc::NativeScriptComponent>;
 
   /** @brief Inherit base System constructors. */
   using System<CM>::System;
@@ -104,7 +108,7 @@ struct NativeScript : public System<CM>, IOnUpdate, IOnEvent, IOnRender {
   void onUpdate(pain::DeltaTime deltaTime) override
   {
     detail::_implOnUpdate(deltaTime,
-                          this->template view<pain::NativeScriptComponent>());
+                          this->template view<tcc::NativeScriptComponent>());
   }
 
   /**
@@ -119,7 +123,7 @@ struct NativeScript : public System<CM>, IOnUpdate, IOnEvent, IOnRender {
    */
   void onEvent(const SDL_Event &e) override
   {
-    detail::_implOnEvent(e, this->template view<pain::NativeScriptComponent>());
+    detail::_implOnEvent(e, this->template view<tcc::NativeScriptComponent>());
   }
 
   /**
@@ -137,7 +141,7 @@ struct NativeScript : public System<CM>, IOnUpdate, IOnEvent, IOnRender {
                 pain::DeltaTime currentTime) override
   {
     detail::_implOnRender(renderAPI, currentTime,
-                          this->template view<pain::NativeScriptComponent>());
+                          this->template view<tcc::NativeScriptComponent>());
   }
   pain::RenderPass getRenderPass() const override
   {

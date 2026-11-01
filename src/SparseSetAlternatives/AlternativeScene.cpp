@@ -78,7 +78,7 @@ void AlternativeScene<Manager>::renderSystems(pain::RenderPass pass,
     static_cast<IOnRender *>(sys)->onRender(renderAPI, currentTime);
 }
 
-template class AlternativeScene<pain::WorldComponents>;
-template class AlternativeScene<pain::UIComponents>;
+template class AlternativeScene<WorldComponents>;
+template class AlternativeScene<UIComponents>;
 
 } // namespace tcc

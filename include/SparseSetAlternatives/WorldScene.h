@@ -7,15 +7,15 @@
 
 #pragma once
 
-#include "ECS/Components/NativeScript.h"
 #include "SparseSetAlternatives/AlternativeScene.h"
+#include "SparseSetAlternatives/NativeScriptComponent.h"
 namespace tcc
 {
 
 /**
  * @brief Scene specialization dedicated to gameplay / world simulation.
  *
- * Scene is a specialization of AlternativeScene using the pain::WorldComponents
+ * Scene is a specialization of AlternativeScene using the WorldComponents
  * registry configuration. It manages:
  *  - World entities and gameplay components.
  *  - Native (C++) script binding and lifecycle.
@@ -24,15 +24,15 @@ namespace tcc
  * This scene represents the main simulation layer of the engine and is
  * intentionally isolated from UI-specific logic.
  */
-class SparseSetScene : public AlternativeScene<pain::WorldComponents>
+class SparseSetScene : public AlternativeScene<WorldComponents>
 {
   template <typename... Ts> struct AreAllTagsRegistered;
   template <typename... Ts> struct AreAllTagsRegistered<TypeList<Ts...>> {
-    static constexpr bool value = pain::WorldComponents::allRegistered<Ts...>();
+    static constexpr bool value = WorldComponents::allRegistered<Ts...>();
   };
 
 public:
-  using AlternativeScene<pain::WorldComponents>::AlternativeScene;
+  using AlternativeScene<WorldComponents>::AlternativeScene;
 
   /**
    * @brief Creates a Scene instance with the required engine services.
@@ -52,7 +52,7 @@ public:
   /**
    * @brief Retrieves a bound native script instance from an entity.
    *
-   * The entity must own a pain::NativeScriptComponent and its instance must be
+   * The entity must own a tcc::NativeScriptComponent and its instance must be
    * of type S.
    *
    * @tparam S Expected script type.
@@ -60,18 +60,18 @@ public:
    * @return Reference to the script instance.
    */
   template <typename S>
-    requires(pain::WorldComponents::isRegistered<pain::NativeScriptComponent>())
+    requires(WorldComponents::isRegistered<tcc::NativeScriptComponent>())
   S &getNativeScript(reg::Entity entity)
   {
-    pain::NativeScriptComponent &nsc =
-        getComponent<pain::NativeScriptComponent>(entity);
+    tcc::NativeScriptComponent &nsc =
+        getComponent<tcc::NativeScriptComponent>(entity);
     return static_cast<S &>(*nsc.instance);
   }
 
   /**
    * @brief Binds and initializes an already constructed native script instance.
    *
-   * The script object is moved into the pain::NativeScriptComponent and its
+   * The script object is moved into the tcc::NativeScriptComponent and its
    * onCreate callback is executed if available.
    *
    * @tparam N Script type.
@@ -81,11 +81,11 @@ public:
    * @return Reference to the bound script instance.
    */
   template <typename N>
-    requires(pain::WorldComponents::isRegistered<pain::NativeScriptComponent>())
+    requires(WorldComponents::isRegistered<tcc::NativeScriptComponent>())
   static N &emplaceScript(reg::Entity entity, SparseSetScene &scene, N &&n)
   {
-    pain::NativeScriptComponent &nsc =
-        scene.getComponent<pain::NativeScriptComponent>(entity);
+    tcc::NativeScriptComponent &nsc =
+        scene.getComponent<tcc::NativeScriptComponent>(entity);
     nsc.bindAndInitiate<N>(std::forward<N>(n));
     if (nsc.instance && nsc.onCreateFunction)
       nsc.onCreateFunction(nsc.instance.get());
@@ -96,7 +96,7 @@ public:
    * @brief Constructs and binds a native script directly inside the component.
    *
    * The script is constructed using the provided arguments and immediately
-   * bound to the entity's pain::NativeScriptComponent. The onCreate callback is
+   * bound to the entity's tcc::NativeScriptComponent. The onCreate callback is
    * executed if available.
    *
    * @tparam N Script type.
@@ -109,13 +109,12 @@ public:
   template <typename N, typename... Args>
     requires std::constructible_from<N, reg::Entity, SparseSetScene &,
                                      Args...> &&
-             (pain::WorldComponents::isRegistered<
-                 pain::NativeScriptComponent>())
+             (WorldComponents::isRegistered<tcc::NativeScriptComponent>())
   static N &emplaceScript(reg::Entity entity, SparseSetScene &scene,
                           Args &&...args)
   {
-    pain::NativeScriptComponent &nsc =
-        scene.getComponent<pain::NativeScriptComponent>(entity);
+    tcc::NativeScriptComponent &nsc =
+        scene.getComponent<tcc::NativeScriptComponent>(entity);
     nsc.bindAndEmplace<N>(entity, scene, std::forward<Args>(args)...);
     if (nsc.instance && nsc.onCreateFunction)
       nsc.onCreateFunction(nsc.instance.get());

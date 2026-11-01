@@ -1,22 +1,27 @@
+
 #include "Assets/ManagerTexture.h"
 #include "Asteroid.h"
+#include "CoreFiles/LogWrapper.h"
+#include "Debugging/Profiling.h"
 #include "Misc/Basic2dPlayer.h"
 #include "MousePointer.h"
 #include "ParticleSimulation.h"
+#include "SimulationProfiling.h"
 #include "Wall.h"
 #include "imgui.h"
 #include <algorithm>
 #include <pain.h>
 #include <painless.h>
+#include <string>
 
-ParticleSimulationArchetype &ParticleSimulationArchetype::createScriptScene(
-    pain::Scene &scene, const SimulationAssets &assets, int startAsteroidCount)
+ParticleSimulationSparseSet &
+ParticleSimulationSparseSet::createScriptScene(tcc::SparseSetScene &scene,
+                                               const SimulationAssets &assets,
+                                               int startAsteroidCount)
 {
   // Only the walls are built here, as entities. The camera, the mouse pointer,
   // the textures and the materials are shared with the other flavour and
   // arrive through @p assets, and the asteroids come from resetSimulation().
-  // That split is what lets SimulationModeSwitch swap flavours without
-  // rebuilding (or duplicating) anything that is not mode specific.
   std::vector<reg::Entity> walls;
   walls.reserve(assets.m_walls.size());
   for (const WallSpec &wall : assets.m_walls)
@@ -25,52 +30,35 @@ ParticleSimulationArchetype &ParticleSimulationArchetype::createScriptScene(
 
   std::vector<reg::Entity> asteroids;
 
-  ParticleSimulationArchetype &script =
-      pain::Scene::emplaceScript<ParticleSimulationArchetype>(
+  ParticleSimulationSparseSet &script =
+      tcc::SparseSetScene::emplaceScript<ParticleSimulationSparseSet>(
           scene.getEntity(), scene, assets.m_camera, std::move(asteroids),
-          std::move(walls), assets.m_mousePointer,
-          // The assets are const, so the vector has to be copied rather than
-          // moved. It holds pointers into the material manager, so this is
-          // cheap and the copy is what keeps the shared assets reusable.
+          std::move(walls),
           std::vector<pain::Material *>(assets.m_asteroidMaterials));
   script.setAsteroidCount(startAsteroidCount);
   return script;
 }
 
-ParticleSimulationArchetype::ParticleSimulationArchetype(
-    reg::Entity entity, pain::Scene &scene, reg::Entity orthocamera,
-    std::vector<reg::Entity> &&asteroid, std::vector<reg::Entity> &&walls,
-    reg::Entity mp, std::vector<pain::Material *> &&asteroidMaterials)
-    : ParticleSimulationBase(entity, scene), m_mousePointer(std::move(mp)),
-      m_orthoCamera(orthocamera), m_asteroids(std::move(asteroid)),
-      m_walls(std::move(walls)),
-      m_asteroidMaterials(std::move(asteroidMaterials)) {};
+ParticleSimulationSparseSet::ParticleSimulationSparseSet(
+    reg::Entity entity,                  //
+    tcc::SparseSetScene &scene,          //
+    reg::Entity orthocamera,             //
+    std::vector<reg::Entity> &&asteroid, //
+    std::vector<reg::Entity> &&walls,    //
+    std::vector<pain::Material *> &&asteroidMaterials)
+    : SparseSetObject(entity, scene),
+      ParticleSimulationBase(orthocamera, std::move(asteroidMaterials)),
+      m_asteroids(std::move(asteroid)), m_walls(std::move(walls)) {};
 
-void ParticleSimulationArchetype::releaseWorldResources()
-{
-  // The walls and the asteroids live in the world registry, not in this
-  // object. The other flavour draws its own walls, so leaving these behind
-  // would double every wall on screen and feed the collision systems a second
-  // set of obstacles. Called by SimulationModeSwitch before this object is
-  // replaced, so the handles are still the ones it created.
-  pain::Scene &scene = getScene();
-  for (reg::Entity asteroid : m_asteroids)
-    scene.removeEntity(asteroid);
-  for (reg::Entity wall : m_walls)
-    scene.removeEntity(wall);
-  m_asteroids.clear();
-  m_walls.clear();
-}
-
-void ParticleSimulationArchetype::setAsteroidCount(int count)
+void ParticleSimulationSparseSet::setAsteroidCount(int count)
 {
   m_asteroidCount = std::clamp(count, 0, Simulation::maxAsteroidCount);
   resetSimulation();
 }
 
-void ParticleSimulationArchetype::resetSimulation()
+void ParticleSimulationSparseSet::resetSimulation()
 {
-  pain::Scene &scene = getScene();
+  tcc::SparseSetScene &scene = getScene();
 
   // Match the entity list to the requested amount. Asteroids are the only
   // entities in the sprite+collider archetype this touches, so removing from
@@ -98,7 +86,7 @@ void ParticleSimulationArchetype::resetSimulation()
   }
 }
 
-void ParticleSimulationArchetype::renderControls()
+void ParticleSimulationSparseSet::renderControls()
 {
   ImGui::Text("Asteroids: %d", static_cast<int>(m_asteroids.size()));
   if (ImGui::InputInt("Amount", &m_asteroidCount, 1,
@@ -106,4 +94,35 @@ void ParticleSimulationArchetype::renderControls()
     setAsteroidCount(m_asteroidCount);
   if (ImGui::Button("Reset"))
     resetSimulation();
+}
+
+void ParticleSimulationSparseSet::onEvent(const SDL_Event &e)
+{
+#ifdef PROFILING
+  if (e.type != SDL_KEYDOWN || e.key.repeat != 0 ||
+      e.key.keysym.scancode != SDL_SCANCODE_SPACE)
+    return;
+
+  std::string availableResultFileName =
+      SimulationProfiling::getNextAvailableFileName(
+          SimulationProfiling::generateTimestampedFilename("profile-"));
+  m_profileFramesUntilClose = SimulationProfiling::profileFrameCount;
+  PLOG_T("Starting profile on file {} with {} frame(s)",
+         availableResultFileName, m_profileFramesUntilClose);
+  PROFILE_OPEN("ParticleSimulationSparseSet", availableResultFileName.c_str());
+#else
+  UNUSED(e)
+#endif
+}
+
+void ParticleSimulationSparseSet::onUpdate(pain::DeltaTime dt)
+{
+  UNUSED(dt)
+#ifdef PROFILING
+  if (m_profileFramesUntilClose <= 0)
+    return;
+
+  if (--m_profileFramesUntilClose == 0)
+    PROFILE_CLOSE();
+#endif
 }

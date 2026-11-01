@@ -20,7 +20,7 @@ void _implOnUpdate(
     reg::View<pain::Transform3dComponent, pain::Movement3dComponent>
         viewMovement3d)
 {
-  PROFILE_FUNCTION();
+  PROFILE_SCOPE("Scene::udpateSystems - Kinematics");
   // =============================================================== //
   // Update Rotation Components
   // =============================================================== //
@@ -39,7 +39,7 @@ void _implOnUpdate(
   // Update Movement Components
   // =============================================================== //
   {
-    PROFILE_SCOPE("Scene::updateSystems - movement");
+    PROFILE_SCOPE("Scene::updateSystems - 2d movement");
     float dt = deltaTime.getSecondsf();
 
     viewMovement2d.forEach(
@@ -48,7 +48,7 @@ void _implOnUpdate(
         });
   }
   {
-    PROFILE_SCOPE("Scene::updateSystems - movement");
+    PROFILE_SCOPE("Scene::updateSystems - 3d movement");
     float dt = deltaTime.getSecondsf();
 
     viewMovement3d.forEach(

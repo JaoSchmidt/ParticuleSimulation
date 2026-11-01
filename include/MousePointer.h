@@ -4,12 +4,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+#if 0
 #pragma once
-
 #include "Core.h"
-#include "ECS/Scriptable.h"
+#include <pain.h>
 
-class MousePointer : public pain::WorldObject {
+class MousePointer : public pain::WorldObject
+{
 public:
   reg::Entity static create(pain::Scene &scene, pain::RenderApi &renderAPI,
                             reg::Entity cameraEntity);
@@ -26,3 +27,4 @@ private:
   reg::Entity m_cameraEntity = reg::Entity{-2};
   glm::vec2 screenToWorld(int mouseX, int mouseY);
 };
+#endif
