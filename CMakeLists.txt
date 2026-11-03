@@ -27,8 +27,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
      "${PROJECT_SOURCE_DIR}/src/*.cpp")
-# main-big-entity.cpp has its own main(). The target is build below
-list(REMOVE_ITEM GAME_SOURCES "${PROJECT_SOURCE_DIR}/src/main-big-entity.cpp")
+# These have their own main(). Their targets are built below
+list(REMOVE_ITEM GAME_SOURCES "${PROJECT_SOURCE_DIR}/src/main-big-entity.cpp"
+     "${PROJECT_SOURCE_DIR}/src/main-mem-size-test.cpp")
 
 add_executable(${TARGET_NAME} ${GAME_SOURCES})
 
@@ -109,6 +110,38 @@ else()
                              PRIVATE SIM_MODE=${SIM_MODE_VALUE})
 endif()
 
+# =========== Memory Size Test ==================================
+# Bytes stored vs. bytes accessed benchmark in main-mem-size-test.cpp. Same setup
+# as the big entity simulation, and it has no sparse set version either.
+set(MEM_SIZE_TARGET_NAME "Mem-Size-Test")
+if(SIM_MODE STREQUAL "sparse_set")
+  message(STATUS "Skipping ${MEM_SIZE_TARGET_NAME}: no sparse_set version")
+else()
+  add_executable(${MEM_SIZE_TARGET_NAME}
+                 "${PROJECT_SOURCE_DIR}/src/main-mem-size-test.cpp")
+  target_include_directories(${MEM_SIZE_TARGET_NAME}
+                             PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  set_target_properties(${MEM_SIZE_TARGET_NAME}
+                        PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+
+  if(MSVC AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(${MEM_SIZE_TARGET_NAME} PRIVATE /W4 /std:c++20 /Zi
+                                                           /bigobj)
+    set_target_properties(${MEM_SIZE_TARGET_NAME} PROPERTIES WIN32_EXECUTABLE
+                                                             TRUE)
+  elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(${MEM_SIZE_TARGET_NAME} PRIVATE -g -std=c++20 -Wall
+                                                           -Wextra)
+  else()
+    target_compile_options(${MEM_SIZE_TARGET_NAME} PRIVATE -std=c++20 -Wall
+                                                           -Wextra)
+  endif()
+
+  target_link_libraries(${MEM_SIZE_TARGET_NAME} PUBLIC Pain Painless)
+  target_compile_definitions(${MEM_SIZE_TARGET_NAME}
+                             PRIVATE SIM_MODE=${SIM_MODE_VALUE})
+endif()
+
 # =========== Resources Management ==================================
 # Define the resources directory for your game
 set(RESOURCES_SOURCE_DIR "${PROJECT_SOURCE_DIR}/resources")
@@ -133,6 +166,9 @@ endif()
 add_dependencies(${TARGET_NAME} copy_game_resources_${TARGET_NAME})
 if(TARGET ${BIG_ENTITY_TARGET_NAME})
   add_dependencies(${BIG_ENTITY_TARGET_NAME} copy_game_resources_${TARGET_NAME})
+endif()
+if(TARGET ${MEM_SIZE_TARGET_NAME})
+  add_dependencies(${MEM_SIZE_TARGET_NAME} copy_game_resources_${TARGET_NAME})
 endif()
 
 # =========== Build Information Banner ==================================

@@ -47,4 +47,10 @@ inline constexpr int bigEntityStartCount = 1024;
 /// Upper bound of the amount input and of the profiling rounds: 128 MiB of
 /// data.
 inline constexpr int bigEntityMaxCount = 131072;
+
+// Memory size test (main-mem-size-test.cpp) ----------------------------------
+inline constexpr int memSizeEntityCount = 100000;
+/// The profiling rounds go from 1 struct per entity up to this. The last one
+/// holds about 300 MB of data.
+inline constexpr int memSizeMaxStructCount = 12;
 } // namespace Simulation

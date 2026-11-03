@@ -8,20 +8,11 @@
  * @file CollisionNaiveSys.h
  * @brief Archetype alternative of the brute-force collision system.
  *
- * This is the archetype counterpart of
- * SparseSetAlternatives/CollisionNaiveSys.h. The original archetype system
- * walks its ChunkViews directly, while the sparse set version first flattens
- * every matching entity into flat vectors of pointers and then runs the
- * pairwise loops over those vectors.
- *
- * ArchAltNaiveCollisionSys keeps the archetype query, but flattens the
- * resulting chunks into the same dynamic and static vectors before the pair
- * loops. This makes the traversal, allocation and cache behaviour comparable to
- * the sparse set version instead of comparing two different iteration
- * strategies.
- *
- * @note Detection, reaction and event emission are the same detail functions
- * used by the regular archetype system.
+ * This is the archetype mirror of ObjectAlternatives/CollisionNaiveSys.h: same
+ * passes in the same order, and the same narrow phase code compiled the same
+ * way. The comparison then measures the data layout instead of where the
+ * functions happen to live, which is what separates it from the engine's
+ * NaiveCollisionSys.
  *
  * @note As with any system, the callback execution is only enabled because the
  * system inherits the corresponding interface:
@@ -53,12 +44,11 @@ void _implOnUpdate(
 } // namespace archaltDetail
 
 /**
- * @brief Brute-force collision system with the sparse set traversal shape.
+ * @brief Brute-force collision system mirroring the plain-object version.
  *
- * Queries the archetype registry exactly like NaiveCollisionSys, but before the
- * pairwise passes it materialises the matching entities into flat vectors. The
- * two passes then iterate those vectors with the same indexed loops used by the
- * sparse set alternative.
+ * Queries the archetype registry exactly like NaiveCollisionSys, then runs the
+ * same two pairwise passes as obj::Systems::NaiveCollision directly over the
+ * chunk arrays.
  */
 template <reg::CompileTimeBitMaskType CM>
 struct ArchAltNaiveCollisionSys : public System<CM>, public IOnUpdate {
@@ -74,7 +64,7 @@ struct ArchAltNaiveCollisionSys : public System<CM>, public IOnUpdate {
   ArchAltNaiveCollisionSys() = delete;
 
   /**
-   * @brief Flattens the archetype chunks and runs the naive collision passes.
+   * @brief Runs the naive collision passes over the archetype chunks.
    *
    * @param deltaTime Frame delta time.
    */

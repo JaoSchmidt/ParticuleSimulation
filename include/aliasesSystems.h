@@ -29,7 +29,7 @@ pain::Scene &declareArchetypeSystems(pain::Application *app)
 {
   pain::Scene &scene = app->getWorldScene();
   scene.createComponents(scene.getEntity(), cmp::Script{});
-  scene.addSystem<NaiveCollision>();
+  scene.addSystem<ArchAltNaiveCollision>();
   scene.addSystem<Render2d>();
   scene.addSystem<NativeScript>();
   scene.addSystem<Kinematics>();

@@ -38,7 +38,7 @@ inline std::string getNextAvailableFileName(const std::string &baseStem)
 /// @brief Frames to wait after a simulation start/reset before profiling.
 constexpr int profileStartDelayFrames = 300;
 /// @brief Number of frames captured before the stream closes automatically.
-constexpr int profileFrameCount = 30;
+constexpr int profileFrameCount = 300;
 } // namespace SimulationProfiling
 
 #endif

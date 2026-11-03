@@ -48,11 +48,13 @@ void narrowPhaseCollision(Asteroid::Object &a, Asteroid::Object &b,
 
   if (collisionHappened.isDetected) {
     if (a.m_isTrigger || b.m_isTrigger) {
+      // HACK: ED isn't actually implemented for object simulation, but it's
+      // kept for a more authentic comparasion with ECS
       eventDispatcher.enqueue<pain::CollisionEvent>( //
           {
-              reg::Entity{0}, reg::Entity{0},   //
-              collisionHappened.normal,         //
-              collisionHappened.penetration     //
+              reg::Entity{0}, reg::Entity{0}, //
+              collisionHappened.normal,       //
+              collisionHappened.penetration   //
           });
     } else {
       pain::ColReaction::solidCollisionDynamic( //
@@ -98,11 +100,13 @@ void narrowPhaseCollisionStatic(Asteroid::Object &a, const Wall::Object &b,
 
   if (collisionHappened.isDetected) {
     if (a.m_isTrigger || b.m_isTrigger) {
+      // HACK: ED isn't actually implemented for object simulation, but it's
+      // kept for a more authentic comparasion with ECS
       eventDispatcher.enqueue<pain::CollisionEvent>( //
           {
-              reg::Entity{0}, reg::Entity{0},   //
-              collisionHappened.normal,         //
-              collisionHappened.penetration     //
+              reg::Entity{0}, reg::Entity{0}, //
+              collisionHappened.normal,       //
+              collisionHappened.penetration   //
           });
     } else {
       pain::ColReaction::solidCollisionStatic( //

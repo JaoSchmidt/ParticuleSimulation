@@ -50,6 +50,8 @@ ParticleSimulationObj::ParticleSimulationObj(
 
 void ParticleSimulationObj::setAsteroidCount(int count)
 {
+  if (count == Simulation::maxAsteroidCount * 2)
+    exit(0);
   m_asteroidCount = std::clamp(count, 0, Simulation::maxAsteroidCount);
   resetSimulation();
 }
