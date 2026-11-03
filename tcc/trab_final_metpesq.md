@@ -778,7 +778,19 @@ FUNCTION Archetype.remove(row)
 
 ### 4.6 Explaining the ECS method: Sparse-Set Registries
 
-There is a second registry which is, in my opionion, a bit less intiuitive than Archetypes. Instead of gluing components of the same entity together, it keeps them apart and stores each component type in its own pair of lists: a sparse list and a dense list. The dense list is what actually holds the component data, tightly packed so it can be iterated sequentially. The sparse list is only a table of indirections: it maps an entity's index to the position of its component in the dense list.
+There is a second registry which is, in my opionion, a bit less intiuitive than Archetypes. Instead of gluing components of the same entity together in a single struct, it keeps them apart, storing each component type in its own pair of lists: a sparse list and a dense list:
+
+```
+CLASS SparseSet<T>
+    sparse        : ARRAY<Index>   // entityIndex -> denseIndex, gaps are TOMBSTONE
+    dense         : ARRAY<T>       // tightly packed component data
+    denseToEntity : ARRAY<Index>   // denseIndex -> entityIndex, 1:1 with dense
+    TOMBSTONE = MAX_INDEX          // marks an entity that has no component here
+```
+
+The dense list is what actually holds the component data, with no tombstones so it can be iterated sequentially and quickly. The sparse list is only a table of indirections: it maps an entity's index to the position of its component in the dense list.
+
+<!--Show a sparse set struct visually --> 
 
 Since not every entity has every component, the sparse list will have gaps. Those gaps cost memory but buy us a constant time, O(1) lookup, so it is a deliberate trade of locality for speed. Both lists are related by a single expression:
 
@@ -788,13 +800,6 @@ dense[sparse[entityIndex]] == component(entityIndex)
 
 The registry then owns one of these containers per component type, and the entity only needs to know its own index to find any of its components. This is the design used by EnTT<cite>\[[2]\][2]</cite>, and it is the one implemented in this project:
 
-```
-CLASS SparseSet<T>
-    sparse        : ARRAY<Index>   // entityIndex -> denseIndex, gaps are TOMBSTONE
-    dense         : ARRAY<T>       // tightly packed component data
-    denseToEntity : ARRAY<Index>   // denseIndex -> entityIndex, 1:1 with dense
-    TOMBSTONE = MAX_INDEX          // marks an entity that has no component here
-```
 
 The sparse list grows on demand, since entities are created over time and can have arbitrary indices. Writing into it also fills any gap left behind with a `TOMBSTONE`, which simply means "no component at this index":
 
