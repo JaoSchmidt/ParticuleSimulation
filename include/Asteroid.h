@@ -8,6 +8,7 @@
 #pragma once
 
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 #include <pain.h>
 
 /**
@@ -41,6 +42,7 @@ struct Object {
   glm::vec2 m_velocity{0.F, 0.F}; ///< Movement2dComponent
   pain::ShapeVariant m_size = pain::RectShape{{0.F, 0.F}}; ///< SpriteComponent
   float m_rotationRadians = 0.F;                    ///< RotationComponent
+  glm::vec3 m_rotation{0.F, 1.F, 0.F};              ///< RotationComponent
   const pain::Material *m_material = nullptr;       ///< MaterialComponent
   pain::RenderLayer m_layer = pain::RenderLayer::C; ///< SpriteComponent
   // Collider members

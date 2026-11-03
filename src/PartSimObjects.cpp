@@ -45,6 +45,7 @@ ParticleSimulationObj::ParticleSimulationObj(
     std::vector<pain::Material *> &&asteroidMaterials)
     : pain::WorldObject(entity, scene),
       ParticleSimulationBase(orthocamera, std::move(asteroidMaterials)),
+      m_eventDispatcher(scene.getEventDispatcher()),
       m_asteroids(std::move(asteroid)), m_walls(std::move(walls)) {};
 
 void ParticleSimulationObj::setAsteroidCount(int count)
@@ -78,40 +79,40 @@ void ParticleSimulationObj::renderControls()
     resetSimulation();
 }
 
-void ParticleSimulationObj::onEvent(const SDL_Event &e)
-{
-#ifdef PROFILING
-  if (e.type != SDL_KEYDOWN || e.key.repeat != 0 ||
-      e.key.keysym.scancode != SDL_SCANCODE_SPACE)
-    return;
-
-  std::string availableResultFileName =
-      SimulationProfiling::getNextAvailableFileName(
-          SimulationProfiling::generateTimestampedFilename("profile-"));
-  m_profileFramesUntilClose = SimulationProfiling::profileFrameCount;
-  PLOG_T("Starting profile on file {} with {} frame(s)",
-         availableResultFileName, m_profileFramesUntilClose);
-  PROFILE_OPEN("ParticleSimulationObj", availableResultFileName.c_str());
-#else
-  UNUSED(e)
-#endif
-}
-
 // ======================================================================= //
 // Non-ECS NaiveCollisionSys + KinematicsSys
 // ======================================================================= //
 void ParticleSimulationObj::onUpdate(pain::DeltaTime dt)
 {
 #ifdef PROFILING
-  if (m_profileFramesUntilClose > 0 && --m_profileFramesUntilClose == 0)
+  if (m_profileFramesUntilStart == 0 && m_profileFramesUntilClose == 0)
+    m_profileFramesUntilStart = SimulationProfiling::profileStartDelayFrames;
+
+  if (m_profileFramesUntilStart > 0) {
+    if (--m_profileFramesUntilStart == 0) {
+      std::string availableResultFileName =
+          SimulationProfiling::getNextAvailableFileName(
+              SimulationProfiling::generateProfileFilename(
+                  "ParticleSimulationObj", asteroidCount()));
+      m_profileFramesUntilClose = SimulationProfiling::profileFrameCount;
+      PLOG_T("Starting profile on file {} with {} frame(s)",
+             availableResultFileName, m_profileFramesUntilClose);
+      PROFILE_OPEN("ParticleSimulationObj", availableResultFileName.c_str());
+    }
+  } else if (m_profileFramesUntilClose > 0 &&
+             --m_profileFramesUntilClose == 0) {
     PROFILE_CLOSE();
+    resetWithDoubleAsteroids(*this);
+    m_profileFramesUntilStart = SimulationProfiling::profileStartDelayFrames;
+  }
 #endif
   // The two systems that do this work in the ECS branch run in this order
   // (see Sys::declareSystems): NaiveCollisionSys first, then KinematicsSys.
   // The order matters, so it is reproduced here: collisions are resolved
   // against the positions left over by the previous frame, and only then is
   // the new position integrated.
-  obj::Systems::NaiveCollision::onUpdate(m_asteroids, m_walls);
+  obj::Systems::NaiveCollision::onUpdate(m_asteroids, m_walls,
+                                         m_eventDispatcher);
   obj::Systems::Kinematics::onUpdate(m_asteroids, dt);
 }
 

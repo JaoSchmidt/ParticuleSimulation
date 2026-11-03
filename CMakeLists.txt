@@ -27,6 +27,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
      "${PROJECT_SOURCE_DIR}/src/*.cpp")
+# main-big-entity.cpp has its own main(). The target is build below
+list(REMOVE_ITEM GAME_SOURCES "${PROJECT_SOURCE_DIR}/src/main-big-entity.cpp")
 
 add_executable(${TARGET_NAME} ${GAME_SOURCES})
 
@@ -54,19 +56,57 @@ target_link_libraries(
                         Painless #
 )
 
-# =========== Application Backend ==================================
-# Choose which application main.cpp builds and runs. ON  -> sparse set
-# application (tcc::Application, default) OFF -> archetype application
-# (pain::Application)
-option(PARTICLE_SIM_USE_SPARSE_SET
-       "Build the sparse set application instead of the archetype one" ON)
+# =========== Simulation Mode ======================================
+# Choose which implementation main.cpp and main-big-entity.cpp build and run. The
+# numeric values match SimulationMode in SimulationConfig.h.
+set(SIM_MODE
+    "archetype"
+    CACHE STRING "Simulation implementation: object, archetype or sparse_set")
+set_property(CACHE SIM_MODE PROPERTY STRINGS object archetype sparse_set)
 
-if(PARTICLE_SIM_USE_SPARSE_SET)
-  target_compile_definitions(${TARGET_NAME}
-                             PRIVATE PARTICLE_SIM_USE_SPARSE_SET=1)
+if(SIM_MODE STREQUAL "object")
+  set(SIM_MODE_VALUE 0)
+elseif(SIM_MODE STREQUAL "archetype")
+  set(SIM_MODE_VALUE 1)
+elseif(SIM_MODE STREQUAL "sparse_set")
+  set(SIM_MODE_VALUE 2)
 else()
-  target_compile_definitions(${TARGET_NAME}
-                             PRIVATE PARTICLE_SIM_USE_SPARSE_SET=0)
+  message(FATAL_ERROR "Invalid SIM_MODE '${SIM_MODE}'. "
+                      "Use object, archetype or sparse_set.")
+endif()
+
+target_compile_definitions(${TARGET_NAME} PRIVATE SIM_MODE=${SIM_MODE_VALUE})
+
+# =========== Big Entity Simulation ==================================
+# Mass-read benchmark in main-big-entity.cpp. It is a separate executable that
+# only needs the engine and SimulationProfiling.h. It has no sparse set version.
+set(BIG_ENTITY_TARGET_NAME "Big-Entity-Sim")
+if(SIM_MODE STREQUAL "sparse_set")
+  message(STATUS "Skipping ${BIG_ENTITY_TARGET_NAME}: no sparse_set version")
+else()
+  add_executable(${BIG_ENTITY_TARGET_NAME}
+                 "${PROJECT_SOURCE_DIR}/src/main-big-entity.cpp")
+  target_include_directories(${BIG_ENTITY_TARGET_NAME}
+                             PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  set_target_properties(${BIG_ENTITY_TARGET_NAME}
+                        PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+
+  if(MSVC AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(${BIG_ENTITY_TARGET_NAME} PRIVATE /W4 /std:c++20 /Zi
+                                                             /bigobj)
+    set_target_properties(${BIG_ENTITY_TARGET_NAME} PROPERTIES WIN32_EXECUTABLE
+                                                               TRUE)
+  elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(${BIG_ENTITY_TARGET_NAME} PRIVATE -g -std=c++20 -Wall
+                                                             -Wextra)
+  else()
+    target_compile_options(${BIG_ENTITY_TARGET_NAME} PRIVATE -std=c++20 -Wall
+                                                             -Wextra)
+  endif()
+
+  target_link_libraries(${BIG_ENTITY_TARGET_NAME} PUBLIC Pain Painless)
+  target_compile_definitions(${BIG_ENTITY_TARGET_NAME}
+                             PRIVATE SIM_MODE=${SIM_MODE_VALUE})
 endif()
 
 # =========== Resources Management ==================================
@@ -91,6 +131,9 @@ endif()
 
 # Ensure resources are copied before building the executable
 add_dependencies(${TARGET_NAME} copy_game_resources_${TARGET_NAME})
+if(TARGET ${BIG_ENTITY_TARGET_NAME})
+  add_dependencies(${BIG_ENTITY_TARGET_NAME} copy_game_resources_${TARGET_NAME})
+endif()
 
 # =========== Build Information Banner ==================================
 string(TIMESTAMP BUILD_TIME "%Y-%m-%d %H:%M:%S")

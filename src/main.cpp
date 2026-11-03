@@ -10,10 +10,6 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 
-#ifndef PARTICLE_SIM_USE_SPARSE_SET
-#define PARTICLE_SIM_USE_SPARSE_SET 1
-#endif
-
 namespace
 {
 /// @brief Creates the camera, the materials and the wall geometry: everything
@@ -94,16 +90,15 @@ SimulationAssets createSimulationAssets(SceneT &scene,
                                     asteroidMaterials.end());
 
   // Walls ---------------------------------------------------------------------
-  assets.m_walls = {{glm::vec2(0.F, 2.F), glm::vec2(10.F, 1.F)}, //
-                    {glm::vec2(3.F, 0.F), glm::vec2(1.F, 10.F)},
-                    {glm::vec2(-3.F, 0.F), glm::vec2(1.F, 10.F)},
-                    {glm::vec2(0.F, -2.F), glm::vec2(10.F, 1.F)}};
+  assets.m_walls = {{glm::vec2(0.F, 4.F), glm::vec2(20.F, 1.F)}, //
+                    {glm::vec2(6.F, 0.F), glm::vec2(1.F, 20.F)},
+                    {glm::vec2(-6.F, 0.F), glm::vec2(1.F, 20.F)},
+                    {glm::vec2(0.F, -4.F), glm::vec2(20.F, 1.F)}};
 
   return assets;
 }
 } // namespace
 
-#if PARTICLE_SIM_USE_SPARSE_SET
 tcc::Application *createSparseSetApplicattion()
 {
   // Retrieve the context the player will alter when using the launcher
@@ -129,18 +124,17 @@ tcc::Application *createSparseSetApplicattion()
 
   // Create the ECS World Scene and its systems
   tcc::SparseSetScene &scene = Sys::declareSparseSetSystems(app);
-
-  // The simulation flavour is chosen at compile time: change Simulation::mode
-  // in ParticleSimulation.h and rebuild to run the other implementation.
+  // scene.group<pain::Transform2dComponent, pain::Movement2dComponent>();
+  // The simulation flavour is chosen at compile time through SIM_MODE.
   SimulationAssets assets = createSimulationAssets(scene, app->getRenderApi(),
                                                    app->getCurrentConfig());
+  LOG_I("Using Sparse Sets registries");
   ParticleSimulationBase *simulation =
       &ParticleSimulationSparseSet::createScriptScene(
           scene, assets, static_cast<int>(Simulation::asteroidAmount));
 
   return app;
 }
-#else
 pain::Application *pain::createApplication()
 {
   // Retrieve the context the player will alter when using the launcher
@@ -166,18 +160,20 @@ pain::Application *pain::createApplication()
   );
 
   // Create the ECS World Scene and its systems
-  pain::Scene &scene = Sys::declareArchetypeSystems(app);
 
-  // The simulation flavour is chosen at compile time: change Simulation::mode
-  // in ParticleSimulation.h and rebuild to run the other implementation.
-  SimulationAssets assets = createSimulationAssets(scene, app->getRenderApi(),
-                                                   app->getCurrentConfig());
   ParticleSimulationBase *simulation = nullptr;
-  if constexpr (Simulation::mode == SimulationMode::Ecs) {
+  if constexpr (Simulation::mode == SimulationMode::Archetype) {
+    LOG_I("Using Archetypes registries");
+    pain::Scene &scene = Sys::declareArchetypeSystems(app);
+    SimulationAssets assets = createSimulationAssets(scene, app->getRenderApi(),
+                                                     app->getCurrentConfig());
     simulation = &ParticleSimulationArchetype::createScriptScene(
         scene, assets, static_cast<int>(Simulation::asteroidAmount));
   } else {
-    LOG_I("Actually using object mode instead of Archetype mode");
+    LOG_I("Using Object Mode");
+    pain::Scene &scene = Sys::declareObj(app);
+    SimulationAssets assets = createSimulationAssets(scene, app->getRenderApi(),
+                                                     app->getCurrentConfig());
     simulation = &ParticleSimulationObj::createScriptScene(
         scene, assets, static_cast<int>(Simulation::asteroidAmount));
   }
@@ -198,7 +194,6 @@ pain::Application *pain::createApplication()
   // System::NativeScript
   return app;
 }
-#endif
 
 #ifdef PLATFORM_IS_LINUX
 int main(int argc, char *argv[])
@@ -214,18 +209,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
     pain::Application *app = painless::createLauncher();
     flags = pain::Pain::runAndDeleteApplication(app);
   }
-#if PARTICLE_SIM_USE_SPARSE_SET
-  LOG_I("Using Sparse Sets registries");
-  while (flags.restartGame) {
-    tcc::Application *app = createSparseSetApplicattion();
-    flags = tcc::Tcc::runAndDeleteApplication(app);
-  }
-#else
-  LOG_I("Using Archetypes registries");
-  while (flags.restartGame) {
-    pain::Application *app = pain::createApplication();
-    flags = pain::Pain::runAndDeleteApplication(app);
-  }
-#endif
+  if constexpr (Simulation::mode == SimulationMode::SparseSet)
+    while (flags.restartGame) {
+      tcc::Application *app = createSparseSetApplicattion();
+      flags = tcc::Tcc::runAndDeleteApplication(app);
+    }
+  if constexpr (Simulation::mode == SimulationMode::Archetype ||
+                Simulation::mode == SimulationMode::Object)
+    while (flags.restartGame) {
+      pain::Application *app = pain::createApplication();
+      flags = pain::Pain::runAndDeleteApplication(app);
+    }
   return 0;
 }

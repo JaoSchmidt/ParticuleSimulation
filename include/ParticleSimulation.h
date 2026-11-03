@@ -1,43 +1,10 @@
 #pragma once
 #include "Asteroid.h"
+#include "SimulationConfig.h"
 #include "SparseSetAlternatives/GameObject.h"
 #include "Wall.h"
 #include <pain.h>
 #include <painless.h>
-
-/**
- * @brief Shared knobs for both simulation flavours.
- *
- * asteroidSeed, asteroidRadius and asteroidAmount are what the two modes have
- * in common: a single seed drives the same Gaussian draw sequence in both, so
- * asteroid i spawns at the same spot with the same velocity no matter which
- * implementation is running, and no matter how many asteroids are asked for.
- */
-namespace Simulation
-{
-const static pain::RNG::SeedType asteroidSeed = 1;
-const static float asteroidRadius = 0.1f;
-const static unsigned asteroidAmount = 200;
-/** Upper bound of the amount slider. Collision is O(n^2) here, so this is
- *  deliberately modest. */
-const static int maxAsteroidCount = 2000;
-} // namespace Simulation
-
-/** @brief Which implementation of the simulation is running. */
-enum class SimulationMode {
-  Object = 0, ///< Plain C++ objects, stepped and drawn by the script itself.
-  Ecs = 1     ///< Entities and components, stepped by the registered systems.
-};
-
-namespace Simulation
-{
-/** @brief The implementation built into this executable.
- *
- * Selected at compile time: change this value and rebuild to run the other
- * simulation. There is no runtime switch.
- */
-constexpr SimulationMode mode = SimulationMode::Ecs;
-} // namespace Simulation
 
 /** @brief One wall, eq to cmp::Pos2d */
 struct WallSpec {
@@ -80,6 +47,13 @@ public:
   /// @brief Draws the controls that drive this flavour.
   virtual void renderControls() = 0;
 
+  /// @brief Resets the simulation with twice the asteroids for the next
+  ///        profiling round.
+  static void resetWithDoubleAsteroids(ParticleSimulationBase &simulation)
+  {
+    simulation.setAsteroidCount(simulation.asteroidCount() * 2);
+  }
+
   std::vector<std::vector<int>> m_backgroundMap;
   std::shared_ptr<pain::Shader> m_texture_shader;
   reg::Entity m_orthoCamera;
@@ -107,7 +81,6 @@ public:
                         std::vector<Wall::Object> &&walls,
                         std::vector<pain::Material *> &&asteroidMaterials);
 
-  void onEvent(const SDL_Event &e);
   void onUpdate(pain::DeltaTime dt);
   void onRender(pain::RenderApi &rs, pain::DeltaTime currentTime);
 
@@ -115,8 +88,12 @@ public:
   void resetSimulation() override;
   int asteroidCount() const override { return m_asteroidCount; }
   void renderControls() override;
+  reg::EventDispatcher &m_eventDispatcher;
   std::vector<Asteroid::Object> m_asteroids;
   std::vector<Wall::Object> m_walls;
+  /// 0: not waiting, >0: frames until profiling opens.
+  int m_profileFramesUntilStart = 0;
+  /// 0: not profiling, >0: frames until profiling closes.
   int m_profileFramesUntilClose = 0;
 };
 
@@ -137,10 +114,12 @@ public:
   void resetSimulation() override;
   int asteroidCount() const override { return m_asteroidCount; }
   void renderControls() override;
-  void onEvent(const SDL_Event &e);
   void onUpdate(pain::DeltaTime dt);
   std::vector<reg::Entity> m_asteroids;
   std::vector<reg::Entity> m_walls;
+  /// 0: not waiting, >0: frames until profiling opens.
+  int m_profileFramesUntilStart = 0;
+  /// 0: not profiling, >0: frames until profiling closes.
   int m_profileFramesUntilClose = 0;
 };
 
@@ -160,9 +139,11 @@ public:
   void resetSimulation() override;
   int asteroidCount() const override { return m_asteroidCount; }
   void renderControls() override;
-  void onEvent(const SDL_Event &e);
   void onUpdate(pain::DeltaTime dt);
   std::vector<reg::Entity> m_asteroids;
   std::vector<reg::Entity> m_walls;
+  /// 0: not waiting, >0: frames until profiling opens.
+  int m_profileFramesUntilStart = 0;
+  /// 0: not profiling, >0: frames until profiling closes.
   int m_profileFramesUntilClose = 0;
 };

@@ -14,10 +14,11 @@
  * every matching entity into flat vectors of pointers and then runs the
  * pairwise loops over those vectors.
  *
- * ArchAltNaiveCollisionSys keeps the archetype query, but flattens the resulting
- * chunks into the same dynamic and static vectors before the pair loops. This
- * makes the traversal, allocation and cache behaviour comparable to the sparse
- * set version instead of comparing two different iteration strategies.
+ * ArchAltNaiveCollisionSys keeps the archetype query, but flattens the
+ * resulting chunks into the same dynamic and static vectors before the pair
+ * loops. This makes the traversal, allocation and cache behaviour comparable to
+ * the sparse set version instead of comparing two different iteration
+ * strategies.
  *
  * @note Detection, reaction and event emission are the same detail functions
  * used by the regular archetype system.
@@ -43,7 +44,6 @@ namespace Systems
 namespace archaltDetail
 {
 void _implOnUpdate(
-    DeltaTime deltaTime,
     std::vector<reg::ChunkView<Transform2dComponent, ColliderComponent>>
         chunksStatic,
     std::vector<reg::ChunkView<Transform2dComponent, ColliderComponent,
@@ -80,9 +80,9 @@ struct ArchAltNaiveCollisionSys : public System<CM>, public IOnUpdate {
    */
   void onUpdate(DeltaTime deltaTime) override
   {
+    UNUSED(deltaTime);
     PROFILE_SCOPE("ArchAltNaiveCollisionSys - onUpdate")
     archaltDetail::_implOnUpdate(
-        deltaTime,
         this->template query<Transform2dComponent, ColliderComponent>(
             exclude<Movement2dComponent>),
         this->template query<Transform2dComponent, ColliderComponent,

@@ -93,33 +93,30 @@ void ParticleSimulationArchetype::renderControls()
     resetSimulation();
 }
 
-void ParticleSimulationArchetype::onEvent(const SDL_Event &e)
-{
-#ifdef PROFILING
-  if (e.type != SDL_KEYDOWN || e.key.repeat != 0 ||
-      e.key.keysym.scancode != SDL_SCANCODE_SPACE)
-    return;
-
-  std::string availableResultFileName =
-      SimulationProfiling::getNextAvailableFileName(
-          SimulationProfiling::generateTimestampedFilename("profile-"));
-  m_profileFramesUntilClose = SimulationProfiling::profileFrameCount;
-  PLOG_T("Starting profile on file {} with {} frame(s)",
-         availableResultFileName, m_profileFramesUntilClose);
-  PROFILE_OPEN("ParticleSimulationArchetype", availableResultFileName.c_str());
-#else
-  UNUSED(e)
-#endif
-}
-
 void ParticleSimulationArchetype::onUpdate(pain::DeltaTime dt)
 {
   UNUSED(dt)
 #ifdef PROFILING
-  if (m_profileFramesUntilClose <= 0)
-    return;
+  if (m_profileFramesUntilStart == 0 && m_profileFramesUntilClose == 0)
+    m_profileFramesUntilStart = SimulationProfiling::profileStartDelayFrames;
 
-  if (--m_profileFramesUntilClose == 0)
+  if (m_profileFramesUntilStart > 0) {
+    if (--m_profileFramesUntilStart == 0) {
+      std::string availableResultFileName =
+          SimulationProfiling::getNextAvailableFileName(
+              SimulationProfiling::generateProfileFilename(
+                  "ParticleSimulationArchetype", asteroidCount()));
+      m_profileFramesUntilClose = SimulationProfiling::profileFrameCount;
+      PLOG_T("Starting profile on file {} with {} frame(s)",
+             availableResultFileName, m_profileFramesUntilClose);
+      PROFILE_OPEN("ParticleSimulationArchetype",
+                   availableResultFileName.c_str());
+    }
+  } else if (m_profileFramesUntilClose > 0 &&
+             --m_profileFramesUntilClose == 0) {
     PROFILE_CLOSE();
+    resetWithDoubleAsteroids(*this);
+    m_profileFramesUntilStart = SimulationProfiling::profileStartDelayFrames;
+  }
 #endif
 }

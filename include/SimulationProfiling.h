@@ -1,45 +1,42 @@
 #pragma once
 
+#include "Core.h"
 #ifdef PROFILING
 
-#include <chrono>
 #include <filesystem>
-#include <iomanip>
-#include <sstream>
 #include <string>
 
 /**
- * @brief Helpers shared by all simulation flavours to drive the profiler with
- * the space key.
+ * @brief Helpers shared by all simulation flavours to start the profiler.
  */
 namespace SimulationProfiling
 {
-/// @brief Builds a prefix + local timestamp stem, e.g. "profile-2026-10-31_12-00-00".
-inline std::string generateTimestampedFilename(const std::string &prefix)
+/// @brief Builds a unique stem from the simulation name and asteroid count.
+inline std::string generateProfileFilename(const std::string &simulationName,
+                                           int asteroidCount)
 {
-  std::ostringstream oss;
-  auto now = std::chrono::system_clock::now();
-  auto inTime = std::chrono::system_clock::to_time_t(now);
-  oss << prefix << std::put_time(std::localtime(&inTime), "%Y-%m-%d_%H-%M-%S");
-  return oss.str();
+  return simulationName + "-" + std::to_string(asteroidCount) + ".O" +
+         std::to_string(pain::optimizationLevel);
 }
 
-/// @brief Returns the first "stem.nN.json" name that does not exist yet.
+/// @brief Returns "stem.json", or "stem-N.json" if that file already exists.
 inline std::string getNextAvailableFileName(const std::string &baseStem)
 {
   namespace fs = std::filesystem;
 
-  std::string extension = ".json";
+  const std::string extension = ".json";
+  std::string name = baseStem + extension;
   int counter = 1;
-  std::string name;
 
-  do {
-    name = baseStem + ".n" + std::to_string(counter++) + extension;
-  } while (fs::exists(name));
+  while (fs::exists(name)) {
+    name = baseStem + "-" + std::to_string(counter++) + extension;
+  }
 
   return name;
 }
 
+/// @brief Frames to wait after a simulation start/reset before profiling.
+constexpr int profileStartDelayFrames = 300;
 /// @brief Number of frames captured before the stream closes automatically.
 constexpr int profileFrameCount = 30;
 } // namespace SimulationProfiling

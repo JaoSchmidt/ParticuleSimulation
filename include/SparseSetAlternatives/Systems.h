@@ -20,8 +20,8 @@
 #include "Core.h"
 #include "CoreRender/Renderer/Misc.h"
 #include "ECS/Components/ComponentManager.h"
-#include "ECS/Registry/Concepts.h"
-#include "ECS/Registry/SparseRegistry.h"
+#include "ECS/Concepts.h"
+#include "ECS/SparseSet/SparseRegistry.h"
 #include "Events/EventDispatcher.h"
 #include <pain.h>
 

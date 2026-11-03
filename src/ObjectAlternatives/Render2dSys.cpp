@@ -64,11 +64,11 @@ void Render2d::onRender(pain::RenderApi &renderApi,
                         const std::vector<Asteroid::Object> &asteroids,
                         const std::vector<Wall::Object> &walls)
 {
-  PROFILE_FUNCTION();
+  PROFILE_SCOPE("Scene::renderSystems - Render2d");
   pain::Renderer2d &renderer2d = renderApi.m_renderer2d;
   {
-    // The ECS asteroids own a RotationComponent, so the system reaches them
-    // through its rotation query.
+    // Asteroids mirror RotationComponent (angle plus axis), and the renderer
+    // consumes the angle directly.
     PROFILE_SCOPE("ParticleSimulationObj::onRender - rotation quads");
     for (const auto &asteroid : asteroids)
       submit<decltype(asteroid), true>(renderer2d, asteroid);

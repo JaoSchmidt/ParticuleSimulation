@@ -9,9 +9,11 @@
  * @brief Plain-object equivalent of the ECS naive collision system.
  *
  * The plain-object simulation keeps position, velocity and collider state
- * inside Asteroid::Object and Wall::Object, so the pair passes index those
- * vectors directly instead of walking registry chunks. Detection, reaction
- * and the order of the moving and static passes mirror the ECS branch.
+ * inside Asteroid::Object and Wall::Object. To match the sparse set version,
+ * each update still flattens both inputs into temporary handle vectors before
+ * the indexed pair passes, even though the object vectors are already flat.
+ * Detection, reaction and the order of the moving and static passes mirror the
+ * sparse set branch.
  */
 
 #pragma once
@@ -29,11 +31,13 @@ struct NaiveCollision {
   /**
    * @brief Resolves asteroid-vs-asteroid and asteroid-vs-wall collisions.
    *
-   * @param asteroids Movable objects, updated in place.
-   * @param walls     Static objects, read only.
+   * @param asteroids       Movable objects, updated in place.
+   * @param walls           Static objects, read only.
+   * @param eventDispatcher Dispatcher used for trigger collision events.
    */
   static void onUpdate(std::vector<Asteroid::Object> &asteroids,
-                       const std::vector<Wall::Object> &walls);
+                       const std::vector<Wall::Object> &walls,
+                       reg::EventDispatcher &eventDispatcher);
 };
 
 } // namespace obj::Systems

@@ -35,6 +35,8 @@ Asteroid::Object Asteroid::createObject(pain::Material &m, glm::vec2 pos,
       .m_position = pos,
       .m_velocity = vel,
       .m_size = pain::RectShape{glm::vec2(radius)},
+      .m_rotationRadians = 0.0F,
+      .m_rotation = {0.0F, 1.0F, 0.0F},
       .m_material = &m,
       // Collider
       .m_offset = {0.0F, 0.0F},

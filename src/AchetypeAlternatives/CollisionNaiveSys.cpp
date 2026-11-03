@@ -31,9 +31,8 @@ struct StaticEntity {
   reg::Entity entity;
 };
 } // namespace
-
+#if 0
 void archaltDetail::_implOnUpdate(
-    DeltaTime deltaTime,
     std::vector<reg::ChunkView<Transform2dComponent, ColliderComponent>>
         chunksStatic,
     std::vector<reg::ChunkView<Transform2dComponent, ColliderComponent,
@@ -42,7 +41,6 @@ void archaltDetail::_implOnUpdate(
     reg::EventDispatcher &eventDispatcher)
 {
   PROFILE_SCOPE("Scene::updateSystems - collision detection")
-  UNUSED(deltaTime)
 
   // Materialise every matching chunk into the same flat arrays the sparse set
   // alternative builds from its views. Both pairwise passes below need random
@@ -50,17 +48,17 @@ void archaltDetail::_implOnUpdate(
   // comparisons and duplicate unordered pairs).
   std::vector<DynamicEntity> dynamic;
   for (auto &chunk : chunks) {
-    auto *t = std::get<0>(chunk.arrays);
-    auto *c = std::get<1>(chunk.arrays);
-    auto *m = std::get<2>(chunk.arrays);
+    auto *__restrict t = std::get<0>(chunk.arrays);
+    auto *__restrict c = std::get<1>(chunk.arrays);
+    auto *__restrict m = std::get<2>(chunk.arrays);
     for (size_t i = 0; i < chunk.count; ++i)
       dynamic.push_back({&t[i], &c[i], &m[i], chunk.entities[i]});
   }
 
   std::vector<StaticEntity> statics;
   for (auto &chunk : chunksStatic) {
-    auto *t = std::get<0>(chunk.arrays);
-    auto *c = std::get<1>(chunk.arrays);
+    auto *__restrict t = std::get<0>(chunk.arrays);
+    auto *__restrict c = std::get<1>(chunk.arrays);
     for (size_t i = 0; i < chunk.count; ++i)
       statics.push_back({&t[i], &c[i], chunk.entities[i]});
   }
@@ -104,6 +102,6 @@ void archaltDetail::_implOnUpdate(
     }
   }
 }
-
+#endif
 } // namespace Systems
 } // namespace pain

@@ -9,9 +9,9 @@
 
 #include "Assets/DeltaTime.h"
 #include "CoreFiles/ThreadPool.h"
-#include "ECS/Registry/Bitmask.h"
-#include "ECS/Registry/Entity.h"
-#include "ECS/Registry/SparseRegistry.h"
+#include "ECS/Bitmask.h"
+#include "ECS/Entity.h"
+#include "ECS/SparseSet/SparseRegistry.h"
 #include "Systems.h"
 #include <pain.h>
 
@@ -70,6 +70,7 @@ public:
     m_entityNames.emplace(e, name);
     return e;
 #else
+    UNUSED(name);
     return m_registry.createEntity();
 #endif
   }
@@ -142,8 +143,7 @@ public:
    * @return A single view over every entity owning the required components.
    */
   template <reg::ECSComponent... Components, typename... ExcludeComponents>
-  inline reg::View<Components...>
-  view(exclude_t<ExcludeComponents...> = {})
+  inline reg::View<Components...> view(exclude_t<ExcludeComponents...> = {})
   {
     return m_registry.template view<Components...>(
         exclude<ExcludeComponents...>);
@@ -213,6 +213,11 @@ public:
 #ifndef NDEBUG
     m_entityNames.erase(entity);
 #endif
+  }
+  /** @brief Group components together */
+  template <reg::ECSComponent... TargetComponents> reg::GroupData &group()
+  {
+    return m_registry.template group<TargetComponents...>();
   }
 
   // =============================================================== //

@@ -1,8 +1,8 @@
 #pragma once
 #include "ArchetypeAlternatives/CollisionNaiveSys.h"
 #include "SparseSetAlternatives/Application.h"
-#include "SparseSetAlternatives/KinematicsSys.h"
 #include "SparseSetAlternatives/CollisionNaiveSys.h"
+#include "SparseSetAlternatives/KinematicsSys.h"
 #include "SparseSetAlternatives/NativeScriptSys.h"
 #include "SparseSetAlternatives/Render2dSys.h"
 #include "SparseSetAlternatives/WorldScene.h"
@@ -29,10 +29,17 @@ pain::Scene &declareArchetypeSystems(pain::Application *app)
 {
   pain::Scene &scene = app->getWorldScene();
   scene.createComponents(scene.getEntity(), cmp::Script{});
-  scene.addSystem<ArchAltNaiveCollision>();
+  scene.addSystem<NaiveCollision>();
   scene.addSystem<Render2d>();
   scene.addSystem<NativeScript>();
   scene.addSystem<Kinematics>();
+  return scene;
+}
+pain::Scene &declareObj(pain::Application *app)
+{
+  pain::Scene &scene = app->getWorldScene();
+  scene.createComponents(scene.getEntity(), cmp::Script{});
+  scene.addSystem<NativeScript>();
   return scene;
 }
 

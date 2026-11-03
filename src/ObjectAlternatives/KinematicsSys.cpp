@@ -7,6 +7,7 @@
 #include "ObjectAlternatives/KinematicsSys.h"
 
 #include "Debugging/Profiling.h"
+#include <cmath>
 
 namespace obj::Systems
 {
@@ -14,12 +15,23 @@ namespace obj::Systems
 void Kinematics::onUpdate(std::vector<Asteroid::Object> &asteroids,
                           pain::DeltaTime deltaTime)
 {
-  PROFILE_SCOPE("ParticleSimulationObj - movement");
-  // Non-ECS KinematicsSys. Walls have no movement, and nothing rotates the
-  // asteroids' m_rotationRadians, so only the integration is left.
-  const float dtf = deltaTime.getSecondsf();
-  for (auto &asteroid : asteroids) {
-    asteroid.m_position += asteroid.m_velocity * dtf;
+  PROFILE_SCOPE("Scene::udpateSystems - Kinematics");
+  {
+    // Mirrors the ECS RotationComponent update: keep the axis vector in sync
+    // with the angle stored on the object.
+    PROFILE_SCOPE("Scene::updateSystems - rotation");
+    for (auto &asteroid : asteroids) {
+      asteroid.m_rotation = {
+          std::cos(glm::radians(asteroid.m_rotationRadians)),
+          std::sin(glm::radians(asteroid.m_rotationRadians)), 0.F};
+    }
+  }
+  {
+    PROFILE_SCOPE("Scene::updateSystems - movement");
+    const float dtf = deltaTime.getSecondsf();
+    for (auto &asteroid : asteroids) {
+      asteroid.m_position += asteroid.m_velocity * dtf;
+    }
   }
 }
 
