@@ -1,0 +1,143 @@
+\documentclass[
+  12pt, a4paper, oneside, openany,
+  chapter=TITLE, section=TITLE,
+  $idioma-secundario$, $idioma$
+]{abntex2}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{mathptmx}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{calc}
+\usepackage{etoolbox}
+\usepackage{pdflscape}
+
+% Tables, as emitted by pandoc's LaTeX writer
+\usepackage{longtable,booktabs,array}
+\newcounter{none}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% Code
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  columns=fullflexible, keepspaces=true, upquote=true,
+  breaklines=true, breakatwhitespace=false,
+  frame=single, framesep=4pt, rulecolor=\color{black!40},
+  xleftmargin=5pt, xrightmargin=5pt,
+  aboveskip=10pt, belowskip=10pt,
+  showstringspaces=false, keywordstyle=\bfseries,
+}
+
+% Citeproc reference list
+\NewDocumentCommand\citeproctext{}{}
+\NewDocumentCommand\citeproc{mm}{%
+  \begingroup\def\citeproctext{#2}\cite{#1}\endgroup}
+\makeatletter
+ \let\@cite@ofmt\@firstofone
+ \def\@biblabel#1{}
+ \def\@cite#1#2{{#1\if@tempswa , #2\fi}}
+\makeatother
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newenvironment{CSLReferences}[2]
+ {\begin{list}{}{%
+  \setlength{\itemindent}{0pt}
+  \setlength{\leftmargin}{0pt}
+  \setlength{\parsep}{0pt}
+  \ifodd #1
+   \setlength{\leftmargin}{\cslhangindent}
+   \setlength{\itemindent}{-1\cslhangindent}
+  \fi
+  \setlength{\itemsep}{#2\baselineskip}}}
+ {\end{list}}
+\newcommand{\CSLBlock}[1]{\hfill\break\parbox[t]{\linewidth}{\strut\ignorespaces#1\strut}}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+
+% ABNT NBR 14724 layout: margins 3cm top/left, 2cm bottom/right, 1.5 spacing
+\setlrmarginsandblock{3cm}{2cm}{*}
+\setulmarginsandblock{3cm}{2cm}{*}
+\checkandfixthelayout
+\setlength{\parindent}{1.25cm}
+\setlength{\parskip}{0.2cm}
+\OnehalfSpacing
+\setlength{\emergencystretch}{3em}
+
+% ABNT: page number at the top right, no running title
+\makeevenhead{abntheadings}{}{}{\ABNTEXfontereduzida\thepage}
+\makeoddhead{abntheadings}{}{}{\ABNTEXfontereduzida\thepage}
+\makeheadrule{abntheadings}{\textwidth}{0pt}
+
+\titulo{$title$$if(subtitle)$: $subtitle$$endif$}
+\autor{$for(author)$$author$$sep$ \and $endfor$}
+\local{$local$}
+\data{$ano$}
+\orientador{$orientador$}
+$if(coorientador)$
+\coorientador{$coorientador$}
+$endif$
+\instituicao{$instituicao$}
+\tipotrabalho{Trabalho de Conclusão de Curso}
+\preambulo{$preambulo$}
+
+\definecolor{blue}{RGB}{41,5,195}
+\makeatletter
+\hypersetup{
+  pdftitle={\@title},
+  pdfauthor={\@author},
+  colorlinks=true, linkcolor=black, citecolor=black, urlcolor=black,
+  bookmarksdepth=4,
+}
+\makeatother
+\makeindex
+
+\begin{document}
+\selectlanguage{$idioma$}
+\frenchspacing
+
+\imprimircapa
+\imprimirfolhaderosto
+
+\begin{resumo}[Resumo]
+\begin{otherlanguage*}{brazil}
+$resumo$
+
+\vspace{\onelineskip}
+\noindent\textbf{Palavras-chave}: $palavras-chave$
+\end{otherlanguage*}
+\end{resumo}
+
+\begin{resumo}[Abstract]
+\begin{otherlanguage*}{english}
+$abstract$
+
+\vspace{\onelineskip}
+\noindent\textbf{Keywords}: $keywords$
+\end{otherlanguage*}
+\end{resumo}
+
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+\pdfbookmark[0]{\listtablename}{lot}
+\listoftables*
+\cleardoublepage
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+\textual
+
+$body$
+
+\end{document}

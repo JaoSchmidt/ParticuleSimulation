@@ -1,0 +1,39 @@
+# Everything the ABNT front matter needs that is not in trab_final_metpesq.md.
+title: "Unlocking Entity Component Systems in Game Engines"
+subtitle: "A Practical Approach to Core Mechanics"
+author: "João Henrique Schmidt de Carvalho"
+orientador: "Geraldo Xexeo"
+# coorientador: ""
+
+# TODO: fill in the items below.
+instituicao: "[UNIVERSIDADE]"
+local: "[CIDADE]"
+ano: "2026"
+preambulo: "Trabalho de Conclusão de Curso apresentado ao [CURSO] da [UNIVERSIDADE], como requisito parcial à obtenção do título de [GRAU]."
+
+# babel main language of the document. Switch to "brazil" once the text is in Portuguese.
+idioma: english
+idioma-secundario: brazil
+
+# DRAFT translation of the Abstract in the .md. The English abstract itself is
+# read from the .md. Review before submitting.
+resumo: |
+  Este trabalho explora a integração do padrão Entity Component System (ECS) e de scripting no desenvolvimento de motores de jogos, com foco em seu papel na melhoria de desempenho, manutenibilidade, modularidade e complexidade de código. O ECS oferece uma abordagem orientada a dados para gerenciar entidades e comportamentos de jogos, tratando desafios relacionados à localidade de memória, ao custo do polimorfismo e ao paralelismo. O scripting possibilita a interação dinâmica e estática com o motor, por meio de Lua e C++, respectivamente, oferecendo maior acessibilidade quando o ECS é desnecessário. Este estudo analisa o impacto do ECS em funcionalidades centrais, como renderização gráfica e simulação física. As principais contribuições incluem benchmarks de desempenho, análises arquiteturais e diretrizes práticas para integrar ECS e scripting a motores de jogos, com implicações que se estendem a softwares de simulação e a outras aplicações críticas em desempenho.
+palavras-chave: "Entity Component System. Motores de jogos. Scripting. Desempenho."
+keywords: "Entity Component System. Game engines. Scripting. Performance."
+
+# The .md has sections 3.x and 4.x but no heading for chapters 3 and 4.
+capitulos:
+  "3": "Description of the problem"
+  "4": "ECS as a remedy"
+
+# "Fonte:" line required under each figure, chosen by path prefix.
+fontes:
+  "tests/plots/": "The author."
+  "images/": "[SOURCE TO BE CONFIRMED]"
+
+# Citations and reference list (ABNT NBR 10520 / NBR 6023).
+bibliography: abnt/referencias.bib
+csl: abnt/abnt.csl
+lang: pt-BR
+link-citations: true
