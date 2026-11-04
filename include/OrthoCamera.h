@@ -8,7 +8,6 @@
 // OrthoCamera.h
 #pragma once
 
-#include "SparseSetAlternatives/WorldScene.h"
 #include <pain.h>
 
 namespace DummyCamera
@@ -21,6 +20,4 @@ reg::Entity createStaticCamera(SceneT &scene, int resolutionWidth,
 extern template reg::Entity createStaticCamera(pain::Scene &, int, int, float,
                                                glm::vec2);
 
-extern template reg::Entity createStaticCamera(tcc::SparseSetScene &, int, int,
-                                               float, glm::vec2);
 } // namespace DummyCamera

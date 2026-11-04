@@ -667,11 +667,41 @@ The problem is, we need alternatives against the use of a single matrix, but not
 
 The answer seems simple then: for entities that use the same components, we can create a dedicated, smaller matrices, that doesn't have any unused memory. If we have $N$ classes in the game, and every class can use a different set of components, it means that we have a maximum of $N$ matrices.
 
-Games however, have an extensive demand for different classes. Meaning that at some point, some of them will inevitably use the same set, which in turn, will make the registry use less than $N$ matrices.
+Games however, have an extensive demand for different classes. Meaning that at some point, some of them will inevitably use the same set of components, which in turn, will make the registry use less than $N$ matrices.
 
-For example, the developer might not need to create different functions to deal with environment rocks, walls, trees and power poles. They can create this scenery with only transform, material, collision and meshes components.
+For example, an environment with rocks, walls, trees and power poles. They can create this scenery with common components like: transform, material, collision and meshes. And the developer might not need to create different functions to deal with each.
 
-This smaller and 100% filled matrix is called "archetype". It allows objects with the same set of components in the same matrix:
+| Component              | $wall_0$                     | $\cdots$ | $wall_{99}$                  | $tree_0$                     | $\cdots$ | $tree_{99}$                  | $pole_0$                     | $\cdots$ | $pole_{99}$                  |
+| ---------------------- | ---------------------------- | -------- | ---------------------------- | ---------------------------- | -------- | ---------------------------- | ---------------------------- | -------- | ---------------------------- |
+| **TransformComponent** | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$                      | $\cdots$ | $(0,0)$                      |
+| **MaterialComponent**  | `{"Texture.glsl", 0xAA11FF}` | $\cdots$ | `{"Texture.glsl", 0xAA11FF}` | `{"Texture.glsl", 0x11AA22}` | $\cdots$ | `{"Texture.glsl", 0x11AA22}` | `{"Texture.glsl", 0x777777}` | $\cdots$ | `{"Texture.glsl", 0x777777}` |
+| **ColliderComponent**  | $(1,1)$                      | $\cdots$ | $(1,1)$                      | $(1,1)$                      | $\cdots$ | $(1,1)$                      | $(1,1)$                      | $\cdots$ | $(1,1)$                      |
+| **MeshComponent**      | `"wall.obj"`                 | $\cdots$ | `"wall.obj"`                 | `"tree.obj"`                 | $\cdots$ | `"tree.obj"`                 | `"pole.obj"`                 | $\cdots$ | `"pole.obj"`                 |
+
+Now if we add a more complex object, like a moving car:
+
+| Component              | $wall_0$                     | $\cdots$ | $wall_{99}$                  | $tree_0$                     | $\cdots$ | $tree_{99}$                  | $pole_0$                     | $\cdots$ | $pole_{99}$                  |
+| ---------------------- | ---------------------------- | -------- | ---------------------------- | ---------------------------- | -------- | ---------------------------- | ---------------------------- | -------- | ---------------------------- |
+| **TransformComponent** | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$                      | $\cdots$ | $(0,0)$                      |
+| **MaterialComponent**  | `{"Texture.glsl", 0xAA11FF}` | $\cdots$ | `{"Texture.glsl", 0xAA11FF}` | `{"Texture.glsl", 0x11AA22}` | $\cdots$ | `{"Texture.glsl", 0x11AA22}` | `{"Texture.glsl", 0x777777}` | $\cdots$ | `{"Texture.glsl", 0x777777}` |
+| **ColliderComponent**  | $(1,1)$                      | $\cdots$ | $(1,1)$                      | $(1,1)$                      | $\cdots$ | $(1,1)$                      | $(1,1)$                      | $\cdots$ | $(1,1)$                      |
+| **MeshComponent**      | `"wall.obj"`                 | $\cdots$ | `"wall.obj"`                 | `"tree.obj"`                 | $\cdots$ | `"tree.obj"`                 | `"pole.obj"`                 | $\cdots$ | `"pole.obj"`                 |
+
+*Matrix 1: walls, trees and power poles*
+
+| Component              | $car_0$                      | $\cdots$ | $car_{99}$                   |
+| ---------------------- | ---------------------------- | -------- | ---------------------------- |
+| **TransformComponent** | $(0,0)$                      | $\cdots$ | $(0,0)$                      |
+| **MaterialComponent**  | `{"Texture.glsl", 0xFF2211}` | $\cdots$ | `{"Texture.glsl", 0xFF2211}` |
+| **ColliderComponent**  | $(1,1)$                      | $\cdots$ | $(1,1)$                      |
+| **MeshComponent**      | `"car.obj"`                  | $\cdots$ | `"car.obj"`                  |
+| **VelocityComponent**  | $(1,0)$                      | $\cdots$ | $(1,0)$                      |
+
+*Matrix 2: cars*
+
+And that's it, meaning objects with the same components are part of the same archetype. If we add moving rocks, those will be in the same archetype as cars.
+
+This set of smaller and 100% filled matrix is called "archetype". It allows objects with the same set of components in the same matrix:
 
 ```
 CLASS Archetype
@@ -682,11 +712,12 @@ CLASS Archetype
 
 <!-- put a visual example of an archetype here -->
 
-Why `removers`? ECS are performance tools, so most likely they will be implement in strong typed languages. The problem is that creating an array inside componentMap will result in type erasure. Meaning the program will lose the original context it used to construct it. In c++, it happens when you use `(void *)`
+Why `removers`? ECS are performance tools, so most likely they will be implement in strong typed language. The problem is that creating an array inside componentMap will result in type erasure. Meaning the program will lose the original context it used to construct it. In c++, it happens when you use `(void *)`
 
 This is fine for reading and modifying since the functions for that will always specify which component they want. But the same isn't true for removal functions since they will either remove a specific entity or the entire archetype, without mentioning context, e.g.:
 
 ```
+registry.createComponent(componentType)
 registry.getComponent(ComponentType, entity)
 registry.query(ComponentType1, ComponentType2, ..., ComponentTypeN)
 registry.remove(entity) // developer doesn't specify component
@@ -741,15 +772,7 @@ FUNCTION Archetype.fetchComponent(componentType, row)
     ASSERT row < array.size
     RETURN array[row]
 ```
-As an added bonus, you can also retrieve any set of components from the entity at once using a tuple, even the whole row at once: the tuple of references the script can use if more than one object's components are in need. This shouldn't be used in systems.
 
-```
-FUNCTION Archetype.extractRow(componentTypes, row)
-    row = NEW Tuple()
-    FOR EACH componentType IN componentTypes DO
-        row.append(fetchComponent(componentType, row))
-    RETURN row
-```
 
 There a many ways to remove a specific compoennt, here is the strategy of swaping with the last element, then decreasing the vector size.
 ```
@@ -775,142 +798,110 @@ FUNCTION Archetype.remove(row)
 ```
 
 
-
-### 4.6 Explaining the ECS method: Sparse-Set Registries
-
-There is a second registry which is, in my opionion, a bit less intiuitive than Archetypes. Instead of gluing components of the same entity together in a single struct, it keeps them apart, storing each component type in its own pair of lists: a sparse list and a dense list:
-
-```
-CLASS SparseSet<T>
-    sparse        : ARRAY<Index>   // entityIndex -> denseIndex, gaps are TOMBSTONE
-    dense         : ARRAY<T>       // tightly packed component data
-    denseToEntity : ARRAY<Index>   // denseIndex -> entityIndex, 1:1 with dense
-    TOMBSTONE = MAX_INDEX          // marks an entity that has no component here
-```
-
-The dense list is what actually holds the component data, with no tombstones so it can be iterated sequentially and quickly. The sparse list is only a table of indirections: it maps an entity's index to the position of its component in the dense list.
-
-<!--Show a sparse set struct visually --> 
-
-Since not every entity has every component, the sparse list will have gaps. Those gaps cost memory but buy us a constant time, O(1) lookup, so it is a deliberate trade of locality for speed. Both lists are related by a single expression:
-
-```
-dense[sparse[entityIndex]] == component(entityIndex)
-```
-
-The registry then owns one of these containers per component type, and the entity only needs to know its own index to find any of its components. This is the design used by EnTT<cite>\[[2]\][2]</cite>, and it is the one implemented in this project:
-
-
-The sparse list grows on demand, since entities are created over time and can have arbitrary indices. Writing into it also fills any gap left behind with a `TOMBSTONE`, which simply means "no component at this index":
-
-```
-// Grows the sparse list if needed, then points entityIndex at a dense slot
-FUNCTION SparseSet.setSparseIndex(entityIndex, denseIndex)
-    IF entityIndex >= sparse.size THEN
-        sparse.resize(entityIndex + 1, TOMBSTONE)
-    sparse[entityIndex] = denseIndex
-```
-
-Reading from it is then just a bounds check followed by one indirection, returning the tombstone when the entity has no component:
-
-```
-// Returns the dense slot of entityIndex, or TOMBSTONE if it has no component
-FUNCTION SparseSet.getDenseIndex(entityIndex)
-    IF entityIndex >= sparse.size THEN
-        RETURN TOMBSTONE
-    RETURN sparse[entityIndex]
-```
-
-Inserting is the operation that links both lists. If the entity already has that component, the value is simply overwritten in place. Otherwise the sparse slot is pointed at the end of the dense list, and the value and its entity index are appended to both dense lists at once:
-
-```
-// Insert or overwrite the component of an entity
-FUNCTION SparseSet.set(entityIndex, value)
-    denseIndex = getDenseIndex(entityIndex)
-
-    // Already there: overwrite in place
-    IF denseIndex != TOMBSTONE THEN
-        dense[denseIndex] = value
-        RETURN REFERENCE dense[denseIndex]
-
-    // New component: append, then link the sparse slot to where it landed
-    setSparseIndex(entityIndex, dense.size)
-    dense.append(value)
-    denseToEntity.append(entityIndex)
-    RETURN REFERENCE dense.back()
-```
-
-Retrieving has two flavors. The first returns nothing when the component is absent, useful for optional access. The second asserts, and is used when the component is known to exist:
-
-```
-// Pointer style: returns the component or NULL
-FUNCTION SparseSet.get(entityIndex)
-    denseIndex = getDenseIndex(entityIndex)
-    RETURN (denseIndex != TOMBSTONE) ? REFERENCE dense[denseIndex] : NULL
-
-// Reference style: used when the component must exist
-FUNCTION SparseSet.getRef(entityIndex)
-    denseIndex = getDenseIndex(entityIndex)
-    ASSERT(denseIndex != TOMBSTONE, "getRef on invalid index " + entityIndex)
-    RETURN REFERENCE dense[denseIndex]
-```
-
-Removal is where the dense list earns its name. To keep it packed, we move the last element into the hole left by the deleted one and shrink the list. Because that last element changed position, its sparse slot must be updated to point at its new home, and the removed entity's slot is set back to a tombstone. It is an O(1) operation, at the cost of not preserving the insertion order:
-
-```
-// O(1) swap-and-pop: the last element fills the hole
-FUNCTION SparseSet.unset(entityIndex)
-    deleted = getDenseIndex(entityIndex)
-
-    IF dense IS EMPTY OR deleted == TOMBSTONE THEN
-        RETURN
-
-    // The last element moves into the hole, so its sparse slot must point there...
-    setSparseIndex(denseToEntity.back(), deleted)
-    // ...while the removed entity is cleared
-    setSparseIndex(entityIndex, TOMBSTONE)
-
-    SWAP dense[deleted], dense.back()
-    SWAP denseToEntity[deleted], denseToEntity.back()
-    dense.pop()
-    denseToEntity.pop()
-```
-
-Finally, the queries the registry uses to inspect and iterate a pool:
-
-```
-FUNCTION SparseSet.contains(entityIndex)
-    RETURN getDenseIndex(entityIndex) != TOMBSTONE
-
-FUNCTION SparseSet.size()
-    RETURN dense.size
-
-// Copy of denseToEntity; the snapshot lets the caller delete while iterating
-FUNCTION SparseSet.getIndexList()
-    RETURN COPY OF denseToEntity
-
-FUNCTION SparseSet.clear()
-    dense.clear()
-    sparse.clear()
-    denseToEntity.clear()
-```
-
-
 ### 4.7 Explaining the ECS method: Scripting
 
-After reviewing the ECS, anyone would be thinking on how hard it would be to replace the direct approach with the ECS approach for all the problems.
-After all, to write everything you must abstract based on behaviors of all entities, and not based on individual objects. 
+After reviewing the ECS, one might wonder how difficult it would be to replace the traditional object-oriented approach entirely with the ECS approach. After all, to implement everything using systems, developers must abstract behaviors across different entities rather than defining them individually for each object.
 
-This is where the part of scripting comes to help. For parts of the code that aren't critical, you can more safely use a slower and easier approach that abstracts many specifications of your engine. That way, game/mod developers can quickly script what they want. 
+This is where scripting comes to help. For parts of the code that aren't critical, you can more safely use object-centric styles too. 
+
+Slower, but easier and felxible approach that abstracts many specifications of your engine. That way, game and mod developers can quickly script what they want. Without diving into the engine code, and without compiling! But you can also compile if you choose to.
+
+Consider, for example, an npc that follows the player. Its movement could be implemented as a dedicated system, but its decision-making process might involve several conditions, timers, random choices, dialogue, and other specific rules. Implementing all these behaviors through generic systems because of a single different entity could introduce unnecessary complexity.
+
+Instead, we can attach a script to an entity and allow it to interact with the ECS through the Registry API. This provides a middle ground between the two approaches: the engine retains the performance advantages of ECS for common operations, while developers preserve the flexibility of object-oriented programming when necessary.
+
+How? Just create a special component that holds a single pointer and put your object specific scripts there. That pointer points to an Entity ID, which can be used to access the components later. Using the fetchComponent function.
+
+Continuing with the example of the car earlier. Assume an arbitrary example declared without an ECS:
+
+```
+CLASS Car
+  position = (0,0)
+  velocity = (0,0)
+  collider = (1,1)
+  mesh = NULL
+  material = NULL
+  break = NULL 
+  transmission = NULL 
+```
+
+To transition to the ECS, it must plan its members to be replaced by components
+
+<!-- Create a drawing of all components being inside an archetype here-->
+```
+CLASS Car
+  position = (0,0)     // Transform Component
+  velocity = (0,0)     // Velocity Component
+  collider = (1,1)     // Collider Component
+  mesh = NULL          // Mesh Component
+  material = NULL      // Material Component
+  break = NULL         // ?
+  transmission = NULL  // ?
+```
+
+We are left with specific members `break` and `transmission`, assume there is only be very few moving cars in the game, the developer might not want to create a component just to be used in single case. For that, the engine can use a special `Script Component` with simple base class
+
+```
+CLASS Scriptable
+  entity = -1
+
+CLASS ScriptComponent
+  scriptable : Scriptable *
+```
+The specific can then be inherit:
+
+```
+CLASS Car EXTENDS Scriptable
+  break = NULL
+  transmission = NULL
+```
+
+Where it can accessed by simple casting.
+
+<!-- Show image of archetype with ScriptComponent, referencing the Scriptable -->
+
+
+It's not uncommon for game engines to use runtime functions as described in the 8º chapter of the `Game Engine Architecture`: Game root loop will iterate `updateSceneElements` and `renderScene` functions. Those can be executed at different frequencies, especially if FPS is locked or if the elements needs more time to process. However, there is no rule forbiding components to reference equivalent functions:
+
+```
+CLASS ScriptComponent
+  scriptable : Scriptable *
+  updateSceneElements : FUNCTION* 
+  renderScene : FUNCTION* 
+
+// later in the game loop
+FUNCTION updateSceneElements()
+  FOR EACH script IN registry.query(ScriptComponent.id)
+    script.updateSceneElements()
+
+// later in the render loop
+FUNCTION renderScene()
+  FOR EACH script IN registry.query(ScriptComponent.id)
+    script.renderScene()
+```
+
+
+Because the Scriptable holds the entity ID, it can access all its original members, but as components. 
+
+
+Looking back to the registry, it's possible to define a new function responsable for retrieving any set of components from the entity:
+
+```
+FUNCTION Archetype.extractRow(componentTypes, row)
+    row = NEW Tuple()
+    FOR EACH componentType IN componentTypes DO
+        row.append(fetchComponent(componentType, row))
+    RETURN row
+```
+
+Since it will be used in very small cases, it might actually be faster then using the ECS system as it doesn't need to prepare the query beforehand.
+
 
 This solution is often used together with a scripting language, which also abstract the C++ to a more simple and friendly language, such as Python, Lua, C#, JavaScript, etc.
 
-<!--
 
-Skip this for now as it will too stupid to talk about something that I barely know for now
--->
 
-## 5 Expected Results of Simulation:
+## 5 Results:
 
 <!--
 I will create some simulations/games to fully explore the expected result scenes.
@@ -920,23 +911,84 @@ Only after that I can start to fully optimize all sections of the problem.
 The expected results will be a visible increase in performance, well defined and separated systems, performant scripting compared to fully compiled languages like c# and c++ and a performat registry equivalent or better than Entt or similar projects.
 -->
 
-To fully explore and validate the expected results, I design simulations and small games that stress-test my game engine. These tests serve both to highlight its capabilities and to identify areas for optimization. Performance considerations will be emphasized, requiring scenarios where computational efficiency has a significant impact. 
+To fully explore and validate the expected results, I design simulations that stress-test my game engine. These tests serve both to highlight its capabilities and to identify areas for optimization. Performance considerations will be emphasized, requiring scenarios where computational efficiency has a significant impact. 
 
 The expected outcomes include:  
 - A measurable increase in performance compared to baseline implementations.  
-- Clearly defined and modular systems, ensuring maintainability and extensibility.  
-- A scripting system that is performant when compared to traditional compiled languages like C# and C++.  
-- A robust registry system that matches or surpasses the performance of EnTT or similar ECS projects.
+- Clearly defined and modular systems benefiting from ECS, with increasing levels of memory layout
+- A scripting system that is performant when compared to traditional OOP styles
+- A robust registry system that doesn't slow down on query calls
 
-### 5.1 Planned Test Cases:
-To achieve these results, I will implement and test the engine using the following scenarios:  
-- **AI Battle Simulation:** Create a clone of the Pezza [AI battle simulation](https://www.youtube.com/watch?v=f_HwyDfvCZQ), where multiple AI agents interact in real-time. This will stress-test the ECS, scripting, and real-time decision-making systems.  
-- **Physics Simulations:** Implement simulations involving water or numerous colliding particles, scenarios commonly found in physics-heavy games. This will validate the engine’s physics system and its ability to handle numerous calculations efficiently.  
-- **High-Object Density Scene:** Design a small scene with a significant number of particles and objects, then intentionally push the system to its limits to identify breaking points and performance bottlenecks.
-- Et cetera.
+### 5.1 Tests:
+To achieve these results, I implemented and tested my engine using the following scenarios:  
+<!-- - **AI Battle Simulation:** Create a clone of the Pezza [AI battle simulation](https://www.youtube.com/watch?v=f_HwyDfvCZQ), where multiple AI agents interact in real-time. This will stress-test the ECS, scripting, and real-time decision-making systems.  -->
+- **Big Entities Scene:** Design a small scene with a increasing number of particles and objects, to intentionally push the system to its limits.
+- **Memory Size Test:** Design a small scene with a fixed number of particles and objects, then intentionally increase the memory size of each struct.
+- **Particule Simulations:** Implement simulations involving water or numerous colliding particles, scenarios commonly found in physics-heavy games. This will validate the engine’s physics system and its ability to handle numerous calculations efficiently.  
 
-### 5.2 Achieving Robustness:
-While game engines are never truly “finished,” the goal is to push the boundaries of what most general-purpose engines achieve within the defined scope of this project. By iterating on each of these tests and striving to exceed or match the benchmarks of existing engines, I aim to demonstrate the robustness and performance of the systems I have built. These efforts will also provide a foundation for future enhancements and expansions of the engine.
+Every test was built with object and archetype versions, compiled at -O2 and for 300 frames. Then retrieve a wall time of each correspondent scope.
+
+I report the median and quartiles per frame, plus the ratio Object / Archetype in a table, so a value above 1 means the Archetype version is faster. The tests ran on 11th Gen Intel i5-1135G7, 24GiB of Ram, kernal 7.2.11-arch1-1 and Clang 23.1.3. Plot scripts and raw tables are in `tcc/tests/`
+
+
+### 5.2 Big Entities Scene
+
+A synthetic test with nothing moving or rendered. Each entity holds 1 KiB in four 256-byte components, and the count doubles from 1024 to 131072. Two read-only passes run each frame: `readHot` sums one component, and `readAll` sums all four. Both versions run the same summing loop, and the sums must match.
+
+`readHot` was 2.08 to 2.80 times slower in the Object version at every entity count. `readAll` was 1.09 to 1.19 times slower, except for one outlier at 65536 entities (0.79). The cost of the layout therefore depends on how much of the entity a pass reads.
+
+![Figure4](tests/plots/bigentity_readhot.png)
+
+*Figure 4: Big Entities, time per frame reading one component of each entity*
+
+![Figure5](tests/plots/bigentity_readall.png)
+
+*Figure 5: Big Entities, time per frame reading all components of each entity*
+
+### 5.3 Memory Size Test
+The entity count is fixed at 100000 and each round adds a 256-byte struct, from 1 to 12 (256 B to 3072 B per entity). `readHot` always reads one struct, so the bytes read stay constant while the bytes stored grow. `readAll` reads every struct.
+
+With one struct both layouts are equivalent, and `readHot` measured 2699 us in both, a useful sanity check. With 12 structs Object took 5155 us against 1652 us for Archetype (3.12x). `readAll` shows no clear advantage up to 4 structs (0.84 – 1.02) and 1.13 – 1.51x from 5 structs on.
+
+![Figure6](tests/plots/memsize_readhot.png)
+
+*Figure 6: Memory Size, time per frame reading one struct of each entity*
+
+![Figure7](tests/plots/memsize_readall.png)
+
+*Figure 7: Memory Size, time per frame reading all structs of each entity*
+
+### 5.4 Particle Simulation
+
+A realistic scene: between 100 and 2000 asteroids move, collide with each other and with four walls, and are rendered. Initial positions and velocities come from the same seed in both versions. Collision detection is naive and O(n²).
+
+Layout made no meaningful difference to this scene, and Object kinematics was slightly faster at low counts. Each entity is small and the systems read most of it, so the Object version wastes little cache.
+
+Collision also dominates the frame regardless of layout. At 2000 asteroids collision alone takes about 22 ms, way above the 16.67 ms budget of a 60 Hz frame, so the simulation no longer holds real time
+As stated before, `updateSceneElements` and `renderScene` runs at different frequencies, so at 22ms, render is almost never called
+
+![Figure8](tests/plots/scene_updatesystems_collision_detection.png)
+
+*Figure 8: Particle Simulation, collision detection time per frame*
+
+![Figure9](tests/plots/scene_udpatesystems_kinematics.png)
+
+*Figure 9: Particle Simulation, kinematics time per frame*
+
+![Figure10](tests/plots/scene_rendersystems_render2d.png)
+
+*Figure 10: Particle Simulation, Render2d time per frame*
+
+### 5.5 Threats to validity
+
+ - Results come from one machine and 300 frames per configuration.
+ - The frame limit lets the CPU idle between frames, so clock changes may affect the absolute times. <!--Remove or update after rerunning.-->
+ - `readHot` always runs before `readAll`, so the second pass may benefit from the cache state left by the first.
+ - Only Object and Archetype were compared. Sparse-set and other engines remain future work.
+
+### 5.6 Conclusion
+
+While game engines are never truly “finished,” the goal is to push the boundaries of what most general-purpose engines achieve within the defined scope of this project. By iterating on each of these tests and striving to exceed or match the benchmarks of existing engines, I aim to demonstrate the robustness and performance of ECS. These efforts will also provide a foundation for future comparasions, like the Sparse-Set Registry.
 
 ## References
 

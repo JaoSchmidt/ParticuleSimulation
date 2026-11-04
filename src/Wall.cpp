@@ -1,9 +1,7 @@
 #include "Wall.h"
-#include "SparseSetAlternatives/WorldScene.h"
 #include <pain.h>
 
-template <typename SceneT>
-reg::Entity Wall::createECS(SceneT &scene, const glm::vec2 &pos,
+reg::Entity Wall::createECS(pain::Scene &scene, const glm::vec2 &pos,
                             const glm::vec2 &size, pain::Material &m)
 {
   reg::Entity entity = scene.createEntity();
@@ -15,14 +13,6 @@ reg::Entity Wall::createECS(SceneT &scene, const glm::vec2 &pos,
       cmp::Collider::createAABB(size));
   return entity;
 }
-
-template reg::Entity Wall::createECS<tcc::SparseSetScene>(
-    tcc::SparseSetScene &scene, const glm::vec2 &pos, const glm::vec2 &size,
-    pain::Material &m);
-template reg::Entity Wall::createECS<pain::Scene>(pain::Scene &scene,
-                                                  const glm::vec2 &pos,
-                                                  const glm::vec2 &size,
-                                                  pain::Material &m);
 
 Wall::Object Wall::createObject(const glm::vec2 &pos, const glm::vec2 &size,
                                 pain::Material &m)

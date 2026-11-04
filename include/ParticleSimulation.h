@@ -1,7 +1,6 @@
 #pragma once
 #include "Asteroid.h"
 #include "SimulationConfig.h"
-#include "SparseSetAlternatives/GameObject.h"
 #include "Wall.h"
 #include <pain.h>
 #include <painless.h>
@@ -107,31 +106,6 @@ public:
                     int startAsteroidCount);
   ParticleSimulationArchetype(
       reg::Entity entity, pain::Scene &scene, reg::Entity orthocamera,
-      std::vector<reg::Entity> &&asteroid, std::vector<reg::Entity> &&walls,
-      std::vector<pain::Material *> &&asteroidMaterials);
-
-  void setAsteroidCount(int count) override;
-  void resetSimulation() override;
-  int asteroidCount() const override { return m_asteroidCount; }
-  void renderControls() override;
-  void onUpdate(pain::DeltaTime dt);
-  std::vector<reg::Entity> m_asteroids;
-  std::vector<reg::Entity> m_walls;
-  /// 0: not waiting, >0: frames until profiling opens.
-  int m_profileFramesUntilStart = 0;
-  /// 0: not profiling, >0: frames until profiling closes.
-  int m_profileFramesUntilClose = 0;
-};
-
-class ParticleSimulationSparseSet : public SparseSetObject,
-                                    public ParticleSimulationBase
-{
-public:
-  static ParticleSimulationSparseSet &
-  createScriptScene(tcc::SparseSetScene &scene, const SimulationAssets &assets,
-                    int startAsteroidCount);
-  ParticleSimulationSparseSet(
-      reg::Entity entity, tcc::SparseSetScene &scene, reg::Entity orthocamera,
       std::vector<reg::Entity> &&asteroid, std::vector<reg::Entity> &&walls,
       std::vector<pain::Material *> &&asteroidMaterials);
 

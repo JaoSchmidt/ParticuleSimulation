@@ -4,8 +4,6 @@
 #include "CustomPanel.h"
 #include "OrthoCamera.h"
 #include "ParticleSimulation.h"
-#include "SparseSetAlternatives/Application.h"
-#include "SparseSetAlternatives/tcc.h"
 #include "aliasesSystems.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
@@ -14,8 +12,7 @@ namespace
 {
 /// @brief Creates the camera, the materials and the wall geometry: everything
 ///        all simulations share.
-template <typename SceneT>
-SimulationAssets createSimulationAssets(SceneT &scene,
+SimulationAssets createSimulationAssets(pain::Scene &scene,
                                         pain::RenderApi &renderAPI,
                                         const pain::AppInit &cfg)
 {
@@ -99,42 +96,6 @@ SimulationAssets createSimulationAssets(SceneT &scene,
 }
 } // namespace
 
-tcc::Application *createSparseSetApplicattion()
-{
-  // Retrieve the context the player will alter when using the launcher
-  pain::IniConfig ini;
-  ini.readAndUpdate();
-
-  // Retrieve the app context defined inside "resources/InternalConfig.ini"
-  pain::InternalConfig internalIni;
-  internalIni.readAndUpdate(ini.assetsPath.value);
-  // Create the application + OpenGL + Event contexts
-  tcc::Application *app = tcc::Application::createApplication( //
-      {
-          .title = internalIni.title.get().c_str(),     //
-          .defaultWidth = ini.defaultWidth.get(),       //
-          .defaultHeight = ini.defaultHeight.get(),     //
-          .defaultZoom2d = internalIni.zoomLevel.get(), //
-          .fullWindow = ini.fullwindow.get(),           //
-          .fullScreen = ini.fullscreen.get(),           //
-          .gridCellSize = internalIni.gridSize.get(),
-      },
-      {.swapChainTarget = true} // sparse set has no editor
-  );
-
-  // Create the ECS World Scene and its systems
-  tcc::SparseSetScene &scene = Sys::declareSparseSetSystems(app);
-  // scene.group<pain::Transform2dComponent, pain::Movement2dComponent>();
-  // The simulation flavour is chosen at compile time through SIM_MODE.
-  SimulationAssets assets = createSimulationAssets(scene, app->getRenderApi(),
-                                                   app->getCurrentConfig());
-  LOG_I("Using Sparse Sets registries");
-  ParticleSimulationBase *simulation =
-      &ParticleSimulationSparseSet::createScriptScene(
-          scene, assets, static_cast<int>(Simulation::asteroidAmount));
-
-  return app;
-}
 pain::Application *pain::createApplication()
 {
   // Retrieve the context the player will alter when using the launcher
@@ -209,11 +170,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
     pain::Application *app = painless::createLauncher();
     flags = pain::Pain::runAndDeleteApplication(app);
   }
-  if constexpr (Simulation::mode == SimulationMode::SparseSet)
-    while (flags.restartGame) {
-      tcc::Application *app = createSparseSetApplicattion();
-      flags = tcc::Tcc::runAndDeleteApplication(app);
-    }
   if constexpr (Simulation::mode == SimulationMode::Archetype ||
                 Simulation::mode == SimulationMode::Object)
     while (flags.restartGame) {

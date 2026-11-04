@@ -22,7 +22,7 @@ void submit(pain::Renderer2d &renderer2d, const ObjectT &obj)
   if constexpr (Rotated)
     rotation = obj.m_rotationRadians;
   std::visit(
-      [&](auto &shape) {
+      [&](const auto &shape) {
         using T = std::decay_t<decltype(shape)>;
         if constexpr (Rotated) {
           if constexpr (std::is_same_v<T, pain::QuadShape>) {

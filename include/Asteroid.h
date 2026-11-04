@@ -25,8 +25,7 @@ namespace Asteroid
 /**
  * @brief Creates an asteroid as an ECS entity.
  */
-template <typename SceneT>
-reg::Entity createECS(SceneT &scene, pain::Material &m, glm::vec2 pos,
+reg::Entity createECS(pain::Scene &scene, pain::Material &m, glm::vec2 pos,
                       glm::vec2 vel, float radius);
 
 /**
