@@ -1,0 +1,17 @@
+Measured scope,Optimization level,Asteroids,Storage,Frames measured,Median (us per frame),1st quartile (us per frame),3rd quartile (us per frame),Fastest frame (us),Slowest frame (us),Median relative to Archetype (x times)
+Scene::renderSystems - Render2d,O2,100,Object,300,19.3,18.8,20.4,6.8,44.4,0.88
+Scene::renderSystems - Render2d,O2,100,Archetype,300,21.9,21.6,22.3,7.7,51.2,1.00
+Scene::renderSystems - Render2d,O2,300,Object,300,48.4,42.0,52.4,14.9,104.3,0.89
+Scene::renderSystems - Render2d,O2,300,Archetype,300,54.3,53.7,57.7,17.6,106.9,1.00
+Scene::renderSystems - Render2d,O2,500,Object,300,78.3,73.2,79.8,24.9,171.5,0.98
+Scene::renderSystems - Render2d,O2,500,Archetype,300,79.9,79.4,86.1,26.7,149.3,1.00
+Scene::renderSystems - Render2d,O2,700,Object,300,67.6,59.3,78.4,34.5,184.6,0.62
+Scene::renderSystems - Render2d,O2,700,Archetype,300,109.1,101.6,110.3,35.2,206.4,1.00
+Scene::renderSystems - Render2d,O2,900,Object,300,52.4,48.5,57.6,42.6,133.8,0.55
+Scene::renderSystems - Render2d,O2,900,Archetype,300,94.9,82.7,106.7,43.4,210.9,1.00
+Scene::renderSystems - Render2d,O2,1100,Object,300,53.4,53.0,58.7,51.5,136.0,0.71
+Scene::renderSystems - Render2d,O2,1100,Archetype,300,75.1,67.1,84.1,52.2,163.8,1.00
+Scene::renderSystems - Render2d,O2,1300,Object,176,104.2,98.8,108.5,74.5,186.0,1.55
+Scene::renderSystems - Render2d,O2,1300,Archetype,300,67.2,62.4,73.7,60.8,226.6,1.00
+Scene::renderSystems - Render2d,O2,1500,Object,3,122.1,114.9,136.1,107.7,150.1,1.69
+Scene::renderSystems - Render2d,O2,1500,Archetype,300,72.1,71.4,81.3,68.8,154.4,1.00

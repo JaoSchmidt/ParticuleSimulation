@@ -6,6 +6,10 @@ João Henrique Schmidt de Carvalho - 119050097
 
 Advisor: Geraldo Xexeo
 
+City: Rio de Janeiro
+
+Univercity: Universidade Federal do Rio de Janeiro
+
 ## Abstract
 
 This work explores the integration of Entity Component System (ECS) and scripting into game engine development, with a focus on their roles in enhancing performance, maintainability, modularity and coding complexity. ECS provides a data-driven approach to managing game entities and behaviors, addressing challenges related to memory locality, polymorphism overhead, and parallelism. Scripting facilitates both dynamic and static interaction with the engine, through Lua and C++ respectively, allowing greater accessibility when the ECS is unnecessary. This study analyzes the impact of ECS on core functionalities like graphics rendering and physics simulation. Key contributions include performance benchmarks, architectural insights, and practical guidelines for integrating ECS and scripting into game engines, with implications extending to simulation software and other performance-critical applications.
@@ -257,7 +261,16 @@ FOR EACH j FROM 0 TO A.cols - 1:
 ```
 When implemented in C, this code will execute in 2.23 seconds for a square matrix A of size $20000$, a 25% increase.
 
-<!-- creates full table here using `perf stat -e '{cache-references,cache-misses},{L1-dcache-loads,L1-dcache-load-misses},{LLC-loads,LLC-load-misses}' ./tcc/matrix_test/rowWise` -->
+| Event                   | Row-wise    | Column-wise   |
+| ----------------------- | ----------- | ------------- |
+| `cache-references`      | 30,372,176  | 1,112,805,176 |
+| `cache-misses`          | 8,309,155   | 145,684,680   |
+| `L1-dcache-loads`       | 400,318,697 | 400,318,545   |
+| `L1-dcache-load-misses` | 31,877,377  | 693,496,164   |
+| `LLC-loads`             | 17,335      | 556,326,496   |
+| `LLC-load-misses`       | 6,775       | 33,935,569    |
+
+*Table: `perf stat` counters for both traversals of the $20000 \times 20000$ matrix, mean of 5 runs on an Intel i5-1135G7. The counts cover the whole program, including the sequential loop that fills the matrix.*
 
 What is happening here? In the memory, the data for matrix A is stored in the following layout:
 
@@ -456,9 +469,9 @@ FOR EACH materialComponent, spriteComponent IN materials, sprites
 // etc...
 ```
 
-![figure3](images/Movement_System.png)
+![figure2](images/Movement_System.png)
 
-*Figure 3: Movement System performs a scalar multiplication and a sum in two vectors*
+*Figure 2: Movement System performs a scalar multiplication and a sum in two vectors*
 
 Using that, we solve memory locality, since the components are now close together in memory, but we still have the polymorphism overhead, because each system function still precedes an interface function. One way to solve this is to create more and more SC functions, until the entire object update is performed by systems.
 
@@ -479,7 +492,7 @@ But how do we create more systems? As a rule of thumb, the code inside each loop
 
 The process of creating them follows the same principle of an optimization flowchart: if any function proves to be a source of constant bottlenecks, then moving the loop from OC to SC becomes more attractive. 
 
-<!-- conseider talking about parallelism here -->
+<!-- consider talking about parallelism here -->
 
 
 ### 4.2 ECS as a remedy: Components
@@ -533,15 +546,9 @@ light = [{intensity = 1}, NULL, NULL] // firefly light component was transported
 
 We are starting to create a matrix of components. If 100 of each were initialized, they would generate the following matrix:
 
-| Component              | $enemy_0$                    | $\cdots$ | $enemy_{99}$                 | $firefly_0$       | $\cdots$ | $firefly_{99}$    | $wall_0$                     | $\cdots$ | $wall_{99}$                  |
-| ---------------------- | ---------------------------- | -------- | ---------------------------- | ----------------- | -------- | ----------------- | ---------------------------- | -------- | ---------------------------- |
-| **TransformComponent** | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$           | $\cdots$ | $(0,0)$           | $(0,0)$                      | $\cdots$ | $(0,0)$                      |
-| **ColliderComponent**  | $(1,1)$                      | $\cdots$ | $(1,1)$                      | —                 | $\cdots$ | —                 | $(1,1)$                      | $\cdots$ | $(1,1)$                      |
-| **VelocityComponent**  | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$           | $\cdots$ | $(0,0)$           | —                            | $\cdots$ | —                            |
-| **MaterialComponent**  | `{"Texture.glsl", 0xFFFFFF}` | $\cdots$ | `{"Texture.glsl", 0xFFFFFF}` | —                 | $\cdots$ | —                 | `{"Texture.glsl", 0xAA11FF}` | $\cdots$ | `{"Texture.glsl", 0xAA11FF}` |
-| **SpriteComponent**    | `{TYPE::SQUARE, (1,1)}`      | $\cdots$ | `{TYPE::SQUARE, (1,1)}`      | —                 | $\cdots$ | —                 | `{TYPE::RECT, (1,1)}`        | $\cdots$ | `{TYPE::RECT, (1,1)}`        |
-| **LightComponent**     | —                            | $\cdots$ | —                            | `{intensity = 1}` | $\cdots$ | `{intensity = 1}` | —                            | $\cdots$ | —                            |
+![figure3](images/matrix0.png)
 
+*Figure 3: Matrix of objects and their components, filled with arbitrary data*
 
 There are two main problems. The first is that representing components as a matrix indexed by entity obligates each component array to reserve space for every entity, even when most entities do not possess that component. This creates sparse data structures: iterating over a component requires either checking for missing components or traversing unused entries, while memory is also consumed by slots that contain no component at all.
 
@@ -572,7 +579,7 @@ CLASS MaterialComponent     // { "Texture.glsl", 0xFFFFFF }, shader, color
 // etc...
 ```
 
-Therefore, querying the correct component is now simply a matter of using the bitmask `OR` operator, allowing us to properly define the vectors `movements`, `transforms`, `sprites`, etc. from the last example:
+Therefore, querying the correct component is now simply a matter of using the bitmask `OR` operator, allowing us to properly define the vectors `movements`, `transforms`, `sprites`, etc. From the last example:
 
 ```pseudocode
 FUNCTION query(Components...)
@@ -593,8 +600,9 @@ FOR EACH movementComponent, transformComponent IN movements, positions
     // move
 ```
 
-The query function now allows us to filter specific components that we want. `componentVectors` isn't defined yet, but that is on purpose. For now, we also need to worry about accessing specific members without using `query`.
+The query function now allows us to filter specific components that we want. `componentVectors` isn't defined yet, but that is on purpose. In the future, we also need to worry about accessing specific members without using `query`.
 
+> image here
 
 <!-- maybe an image here? -->
 
@@ -628,10 +636,6 @@ There are different views on what constitutes an entity or what it's supposed to
 I, however, decided to go with the definition used by Unity Engine, which states that entities are just indices that represent object IDs. 
 
 The reason to prefer this definition is that it's closer to the usual implementations, which use it as an ID.
-
-![Figure2](images/ECS_arbitrary.png)
-
-*Figure 2: Arbitrary components from arbitrary entities filled with arbitrary data in a random order*
 
 As you can guess from the definitions of components, entities and rows, the insides of ECSs are usually stored inside flexible data structures like vectors, maps, unordered maps, etc. The engine needs that flexibility to maximize the contiguous memory while avoiding creating unused memory.
 
@@ -671,33 +675,13 @@ Games, however, have an extensive demand for different classes, meaning that at 
 
 For example, consider an environment with rocks, walls, trees, and power poles. They can create this scenery with common components like transform, material, collision and meshes. And the developer might not need to create different functions to deal with each.
 
-| Component              | $wall_0$                     | $\cdots$ | $wall_{99}$                  | $tree_0$                     | $\cdots$ | $tree_{99}$                  | $pole_0$                     | $\cdots$ | $pole_{99}$                  |
-| ---------------------- | ---------------------------- | -------- | ---------------------------- | ---------------------------- | -------- | ---------------------------- | ---------------------------- | -------- | ---------------------------- |
-| **TransformComponent** | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$                      | $\cdots$ | $(0,0)$                      |
-| **MaterialComponent**  | `{"Texture.glsl", 0xAA11FF}` | $\cdots$ | `{"Texture.glsl", 0xAA11FF}` | `{"Texture.glsl", 0x11AA22}` | $\cdots$ | `{"Texture.glsl", 0x11AA22}` | `{"Texture.glsl", 0x777777}` | $\cdots$ | `{"Texture.glsl", 0x777777}` |
-| **ColliderComponent**  | $(1,1)$                      | $\cdots$ | $(1,1)$                      | $(1,1)$                      | $\cdots$ | $(1,1)$                      | $(1,1)$                      | $\cdots$ | $(1,1)$                      |
-| **MeshComponent**      | `"wall.obj"`                 | $\cdots$ | `"wall.obj"`                 | `"tree.obj"`                 | $\cdots$ | `"tree.obj"`                 | `"pole.obj"`                 | $\cdots$ | `"pole.obj"`                 |
+![Figure3](images/matrix1.png)
+*Matrix 1: walls, trees and power poles with arbitrary values*
 
-Now, if we add a more complex object, like a moving car:
+Now, if we add a more complex object, like a moving car that needs a moving component:
 
-| Component              | $wall_0$                     | $\cdots$ | $wall_{99}$                  | $tree_0$                     | $\cdots$ | $tree_{99}$                  | $pole_0$                     | $\cdots$ | $pole_{99}$                  |
-| ---------------------- | ---------------------------- | -------- | ---------------------------- | ---------------------------- | -------- | ---------------------------- | ---------------------------- | -------- | ---------------------------- |
-| **TransformComponent** | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$                      | $\cdots$ | $(0,0)$                      | $(0,0)$                      | $\cdots$ | $(0,0)$                      |
-| **MaterialComponent**  | `{"Texture.glsl", 0xAA11FF}` | $\cdots$ | `{"Texture.glsl", 0xAA11FF}` | `{"Texture.glsl", 0x11AA22}` | $\cdots$ | `{"Texture.glsl", 0x11AA22}` | `{"Texture.glsl", 0x777777}` | $\cdots$ | `{"Texture.glsl", 0x777777}` |
-| **ColliderComponent**  | $(1,1)$                      | $\cdots$ | $(1,1)$                      | $(1,1)$                      | $\cdots$ | $(1,1)$                      | $(1,1)$                      | $\cdots$ | $(1,1)$                      |
-| **MeshComponent**      | `"wall.obj"`                 | $\cdots$ | `"wall.obj"`                 | `"tree.obj"`                 | $\cdots$ | `"tree.obj"`                 | `"pole.obj"`                 | $\cdots$ | `"pole.obj"`                 |
-
-*Matrix 1: walls, trees and power poles*
-
-| Component              | $car_0$                      | $\cdots$ | $car_{99}$                   |
-| ---------------------- | ---------------------------- | -------- | ---------------------------- |
-| **TransformComponent** | $(0,0)$                      | $\cdots$ | $(0,0)$                      |
-| **MaterialComponent**  | `{"Texture.glsl", 0xFF2211}` | $\cdots$ | `{"Texture.glsl", 0xFF2211}` |
-| **ColliderComponent**  | $(1,1)$                      | $\cdots$ | $(1,1)$                      |
-| **MeshComponent**      | `"car.obj"`                  | $\cdots$ | `"car.obj"`                  |
-| **VelocityComponent**  | $(1,0)$                      | $\cdots$ | $(1,0)$                      |
-
-*Matrix 2: cars*
+![Figure4](images/matrix2.png)
+*Matrix 2: cars with arbitrary values*
 
 And that's it, meaning objects with the same components are part of the same archetype. If we add moving rocks, those will be in the same archetype as cars.
 
@@ -710,7 +694,6 @@ CLASS Archetype
     removers     : ARRAY<Function(Row)>    // swap-and-pop routine for each component type
 ```
 
-<!-- put a visual example of an archetype here -->
 
 Why `removers`? ECSs are performance tools, so most likely they will be implemented in a strongly typed language. The problem is that creating an array inside componentMap will result in type erasure, meaning the program will lose the original context it used to construct it. In C++, this happens when you use `(void *)`.
 
@@ -814,30 +797,15 @@ How? Just create a special component that holds a single pointer and put your ob
 
 Continuing with the example of the car from earlier, assume an arbitrary example declared without an ECS:
 
-```
-CLASS Car
-  position = (0,0)
-  velocity = (0,0)
-  collider = (1,1)
-  mesh = NULL
-  material = NULL
-  break = NULL 
-  transmission = NULL 
-```
+
+![Figure5](images/archetype-car.png)
+*Figure 3: Car struct and an equivalent archetype*
 
 To transition to the ECS, the developer must plan for its members to be replaced by components:
 
-<!-- Create a drawing of all components being inside an archetype here-->
-```
-CLASS Car
-  position = (0,0)     // Transform Component
-  velocity = (0,0)     // Velocity Component
-  collider = (1,1)     // Collider Component
-  mesh = NULL          // Mesh Component
-  material = NULL      // Material Component
-  break = NULL         // ?
-  transmission = NULL  // ?
-```
+
+![Figure6](images/archetype-car2.png)
+*Figure 4: Moving the members into an archetype* 
 
 We are left with specific members `break` and `transmission`. Assuming there are only very few moving cars in the game, the developer might not want to create a component just to be used in a single case. For that, the engine can use a special `Script Component` with a simple base class:
 
@@ -858,7 +826,8 @@ CLASS Car EXTENDS Scriptable
 
 They can then be accessed by simple casting.
 
-<!-- Show image of archetype with ScriptComponent, referencing the Scriptable -->
+![Figure7](images/archetype-car3.png)
+*Figure 5: Moving the members into an archetype* 
 
 
 It's not uncommon for game engines to use runtime functions as described in the 8th chapter of `Game Engine Architecture`: the game's root loop will iterate `updateSceneElements` and `renderScene` functions. Those can be executed at different frequencies, especially if FPS is locked or if the elements need more time to process. However, there is no rule forbidding components to reference equivalent functions:
@@ -937,26 +906,26 @@ This is a synthetic test with nothing moving or rendered. Each entity holds 1 Ki
 
 `readHot` was 2.08 to 2.80 times slower in the Object version at every entity count. `readAll` was 1.09 to 1.19 times slower, except for one outlier at 65536 entities (0.79). The cost of the layout therefore depends on how much of the entity a pass reads.
 
-![Figure4](tests/plots/bigentity_readhot.png)
+![Figure8](tests/plots/bigentity_readhot.png)
 
-*Figure 4: Big Entities, time per frame reading one component of each entity*
+*Figure 6: Big Entities, time per frame reading one component of each entity*
 
-![Figure5](tests/plots/bigentity_readall.png)
+![Figure9](tests/plots/bigentity_readall.png)
 
-*Figure 5: Big Entities, time per frame reading all components of each entity*
+*Figure 7: Big Entities, time per frame reading all components of each entity*
 
 ### 5.3 Memory Size Test
 The entity count is fixed at 100000 and each round adds a 256-byte struct, from 1 to 12 (256 B to 3072 B per entity). `readHot` always reads one struct, so the bytes read stay constant while the bytes stored grow. `readAll` reads every struct.
 
 With one struct, both layouts are equivalent, and `readHot` measured 2699 us in both, a useful sanity check. With 12 structs, Object took 5155 us against 1652 us for Archetype (3.12x). `readAll` shows no clear advantage up to 4 structs (0.84 – 1.02) and 1.13 – 1.51x from 5 structs on.
 
-![Figure6](tests/plots/memsize_readhot.png)
+![Figure10](tests/plots/memsize_readhot.png)
 
-*Figure 6: Memory Size, time per frame reading one struct of each entity*
+*Figure 8: Memory Size, time per frame reading one struct of each entity*
 
-![Figure7](tests/plots/memsize_readall.png)
+![Figure11](tests/plots/memsize_readall.png)
 
-*Figure 7: Memory Size, time per frame reading all structs of each entity*
+*Figure 9: Memory Size, time per frame reading all structs of each entity*
 
 ### 5.4 Particle Simulation
 
@@ -967,17 +936,17 @@ Layout made no meaningful difference in this scene, and Object kinematics was sl
 Collision also dominates the frame regardless of layout. At 2000 asteroids, collision alone takes about 22 ms, way above the 16.67 ms budget of a 60 Hz frame, so the simulation no longer holds real time.
 As stated before, `updateSceneElements` and `renderScene` run at different frequencies, so at 22 ms, render is almost never called.
 
-![Figure8](tests/plots/scene_updatesystems_collision_detection.png)
+![Figure12](tests/plots/scene_updatesystems_collision_detection.png)
 
-*Figure 8: Particle Simulation, collision detection time per frame*
+*Figure 10: Particle Simulation, collision detection time per frame*
 
-![Figure9](tests/plots/scene_udpatesystems_kinematics.png)
+![Figure13](tests/plots/scene_udpatesystems_kinematics.png)
 
-*Figure 9: Particle Simulation, kinematics time per frame*
+*Figure 11: Particle Simulation, kinematics time per frame*
 
-![Figure10](tests/plots/scene_rendersystems_render2d.png)
+![Figure14](tests/plots/scene_rendersystems_render2d.png)
 
-*Figure 10: Particle Simulation, Render2d time per frame*
+*Figure 12: Particle Simulation, Render2d time per frame*
 
 ### 5.5 Threats to validity
 

@@ -1,0 +1,17 @@
+Measured scope,Optimization level,Entities,Storage,Frames measured,Median (us per frame),1st quartile (us per frame),3rd quartile (us per frame),Fastest frame (us),Slowest frame (us),Median relative to Archetype (x times)
+BigEntity::readHot,O2,1024,Object,300,56.5,50.8,65.5,8.8,89.2,2.08
+BigEntity::readHot,O2,1024,Archetype,300,27.2,21.9,30.3,7.1,68.0,1.00
+BigEntity::readHot,O2,2048,Object,300,119.0,100.6,135.5,20.2,209.1,2.64
+BigEntity::readHot,O2,2048,Archetype,300,45.1,36.2,54.8,15.0,136.7,1.00
+BigEntity::readHot,O2,4096,Object,300,243.3,193.0,275.8,57.5,648.1,2.33
+BigEntity::readHot,O2,4096,Archetype,300,104.5,92.7,114.7,36.7,346.1,1.00
+BigEntity::readHot,O2,8192,Object,300,397.0,351.5,467.4,218.8,1036.0,1.91
+BigEntity::readHot,O2,8192,Archetype,300,208.3,175.7,228.0,122.4,347.5,1.00
+BigEntity::readHot,O2,16384,Object,300,1093.6,994.2,1168.8,641.4,1598.6,2.61
+BigEntity::readHot,O2,16384,Archetype,300,418.3,380.7,446.0,233.6,808.8,1.00
+BigEntity::readHot,O2,32768,Object,300,2183.7,1873.8,2300.9,1263.8,2950.9,2.59
+BigEntity::readHot,O2,32768,Archetype,300,844.1,725.8,915.7,465.3,1333.1,1.00
+BigEntity::readHot,O2,65536,Object,300,3338.8,3155.1,3484.5,2550.0,4607.2,2.02
+BigEntity::readHot,O2,65536,Archetype,300,1654.9,1379.8,1757.3,1006.2,2320.0,1.00
+BigEntity::readHot,O2,131072,Object,300,6433.2,6242.6,6682.9,5991.4,8372.9,2.94
+BigEntity::readHot,O2,131072,Archetype,300,2189.6,2003.1,2391.2,1865.1,3433.8,1.00

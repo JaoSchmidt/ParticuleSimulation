@@ -71,6 +71,8 @@ def classify(stem, names):
         return ARCH
     if "obj" in lowered:
         return OBJ
+    if any(n.startswith("ParticleSimulationArch") for n in names):
+        return ARCH
     if any(n.startswith("ParticleSimulationObj") for n in names):
         return OBJ
     if any(n.startswith("Scene::") for n in names):

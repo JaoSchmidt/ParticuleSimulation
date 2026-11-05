@@ -1,0 +1,25 @@
+Measured scope,Optimization level,Structs per entity,Bytes stored per entity,Storage,Frames measured,Median (us per frame),1st quartile (us per frame),3rd quartile (us per frame),Fastest frame (us),Slowest frame (us),Median relative to Archetype (x times)
+MemSize::readAll,O2,1,256,Object,300,2517.5,2473.8,2569.0,1475.8,3812.8,0.99
+MemSize::readAll,O2,1,256,Archetype,300,2551.8,2521.7,2607.2,1468.4,3510.5,1.00
+MemSize::readAll,O2,2,512,Object,300,3464.3,3380.5,3561.2,2832.7,5693.0,0.84
+MemSize::readAll,O2,2,512,Archetype,300,4109.4,4009.7,4226.5,2345.5,5217.1,1.00
+MemSize::readAll,O2,3,768,Object,300,4684.6,4279.0,5345.6,4134.6,8004.5,0.92
+MemSize::readAll,O2,3,768,Archetype,300,5065.8,4828.3,5300.3,3480.0,6795.1,1.00
+MemSize::readAll,O2,4,1024,Object,300,5744.5,5587.9,6151.0,5382.1,13326.1,1.02
+MemSize::readAll,O2,4,1024,Archetype,300,5639.4,5457.4,5772.3,4400.7,8315.1,1.00
+MemSize::readAll,O2,5,1280,Object,300,8980.3,8548.2,11575.3,7753.3,16541.4,1.51
+MemSize::readAll,O2,5,1280,Archetype,300,5942.6,5839.7,6058.1,5500.5,9092.9,1.00
+MemSize::readAll,O2,6,1536,Object,300,9174.5,9031.2,9270.7,8890.4,13045.3,1.38
+MemSize::readAll,O2,6,1536,Archetype,300,6640.3,6565.0,6741.3,6418.4,9658.0,1.00
+MemSize::readAll,O2,7,1792,Object,300,10866.2,10695.4,10982.1,10542.8,14415.0,1.34
+MemSize::readAll,O2,7,1792,Archetype,300,8133.5,7672.9,8245.7,7405.7,12402.0,1.00
+MemSize::readAll,O2,8,2048,Object,300,12303.8,12149.1,12510.9,11901.3,14701.2,1.23
+MemSize::readAll,O2,8,2048,Archetype,300,9984.9,9902.9,10110.7,9745.3,14763.3,1.00
+MemSize::readAll,O2,9,2304,Object,300,14084.6,13901.9,14292.3,13564.3,15944.6,1.16
+MemSize::readAll,O2,9,2304,Archetype,300,12164.1,11819.0,12733.6,11350.4,13916.7,1.00
+MemSize::readAll,O2,10,2560,Object,300,15833.1,15619.2,16089.3,15290.3,16976.5,1.13
+MemSize::readAll,O2,10,2560,Archetype,300,14044.8,13737.4,14147.2,13455.1,21480.0,1.00
+MemSize::readAll,O2,11,2816,Object,300,17773.7,17580.8,17999.5,17268.7,19401.0,1.19
+MemSize::readAll,O2,11,2816,Archetype,300,14919.9,14868.9,15076.9,14475.8,18131.0,1.00
+MemSize::readAll,O2,12,3072,Object,300,19257.8,19057.1,19470.7,18744.2,20474.3,1.17
+MemSize::readAll,O2,12,3072,Archetype,300,16414.2,16374.1,16558.9,15952.2,20267.6,1.00

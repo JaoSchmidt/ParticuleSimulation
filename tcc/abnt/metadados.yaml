@@ -6,10 +6,10 @@ orientador: "Geraldo Xexeo"
 # coorientador: ""
 
 # TODO: fill in the items below.
-instituicao: "[UNIVERSIDADE]"
-local: "[CIDADE]"
+instituicao: "Universidade Federal do Rio de Janeiro"
+local: "Rio de Janeiro"
 ano: "2026"
-preambulo: "Trabalho de Conclusão de Curso apresentado ao [CURSO] da [UNIVERSIDADE], como requisito parcial à obtenção do título de [GRAU]."
+preambulo: "Trabalho de Conclusão de Curso apresentado ao [CURSO] da Universidade Federal do Rio de Janeiro, como requisito parcial à obtenção do título de [GRAU]."
 
 # babel main language of the document. Switch to "brazil" once the text is in Portuguese.
 idioma: english
@@ -30,7 +30,6 @@ capitulos:
 # "Fonte:" line required under each figure, chosen by path prefix.
 fontes:
   "tests/plots/": "The author."
-  "images/": "[SOURCE TO BE CONFIRMED]"
 
 # Citations and reference list (ABNT NBR 10520 / NBR 6023).
 bibliography: abnt/referencias.bib

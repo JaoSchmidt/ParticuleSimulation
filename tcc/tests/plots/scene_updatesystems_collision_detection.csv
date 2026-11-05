@@ -1,0 +1,17 @@
+Measured scope,Optimization level,Asteroids,Storage,Frames measured,Median (us per frame),1st quartile (us per frame),3rd quartile (us per frame),Fastest frame (us),Slowest frame (us),Median relative to Archetype (x times)
+Scene::updateSystems - collision detection,O2,100,Object,300,220.0,214.5,237.3,72.7,332.5,1.88
+Scene::updateSystems - collision detection,O2,100,Archetype,300,117.1,114.7,123.4,36.6,290.5,1.00
+Scene::updateSystems - collision detection,O2,300,Object,300,1850.1,1509.0,1908.9,559.0,2739.0,1.80
+Scene::updateSystems - collision detection,O2,300,Archetype,300,1028.9,1010.0,1050.7,319.4,1489.3,1.00
+Scene::updateSystems - collision detection,O2,500,Object,300,4856.7,4746.6,4973.2,1619.1,6405.6,1.79
+Scene::updateSystems - collision detection,O2,500,Archetype,300,2715.9,2633.9,2777.4,858.6,4074.4,1.00
+Scene::updateSystems - collision detection,O2,700,Object,300,7517.5,7071.2,7945.6,3054.0,9610.8,1.47
+Scene::updateSystems - collision detection,O2,700,Archetype,300,5122.6,5009.0,5224.5,1685.9,6668.7,1.00
+Scene::updateSystems - collision detection,O2,900,Object,300,7569.1,7300.2,7817.1,4783.3,13238.8,1.03
+Scene::updateSystems - collision detection,O2,900,Archetype,300,7331.0,6994.1,7660.7,2812.7,10881.5,1.00
+Scene::updateSystems - collision detection,O2,1100,Object,300,8013.3,7726.6,8470.1,6980.5,16220.4,1.07
+Scene::updateSystems - collision detection,O2,1100,Archetype,300,7483.7,7013.2,7922.7,4079.1,12104.3,1.00
+Scene::updateSystems - collision detection,O2,1300,Object,300,16367.2,15781.5,16827.3,11646.7,21537.5,2.16
+Scene::updateSystems - collision detection,O2,1300,Archetype,300,7581.6,7050.7,8090.6,5466.5,16134.3,1.00
+Scene::updateSystems - collision detection,O2,1500,Object,300,19330.3,19146.1,19836.7,19077.0,25505.8,2.42
+Scene::updateSystems - collision detection,O2,1500,Archetype,300,7986.1,7704.8,8539.9,7254.9,18798.4,1.00

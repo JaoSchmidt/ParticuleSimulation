@@ -1,0 +1,17 @@
+Measured scope,Optimization level,Asteroids,Storage,Frames measured,Median (us per frame),1st quartile (us per frame),3rd quartile (us per frame),Fastest frame (us),Slowest frame (us),Median relative to Archetype (x times)
+Scene::udpateSystems - Kinematics,O2,100,Object,300,5.1,4.8,5.3,2.0,11.0,0.79
+Scene::udpateSystems - Kinematics,O2,100,Archetype,300,6.4,6.2,6.6,2.2,61.9,1.00
+Scene::udpateSystems - Kinematics,O2,300,Object,300,8.2,7.2,8.7,2.5,116.6,0.86
+Scene::udpateSystems - Kinematics,O2,300,Archetype,300,9.5,9.2,9.8,3.8,28.6,1.00
+Scene::udpateSystems - Kinematics,O2,500,Object,300,11.7,11.1,12.1,4.0,100.6,1.01
+Scene::udpateSystems - Kinematics,O2,500,Archetype,300,11.6,11.4,12.0,4.8,29.7,1.00
+Scene::udpateSystems - Kinematics,O2,700,Object,300,9.7,8.5,11.2,5.3,109.7,0.68
+Scene::udpateSystems - Kinematics,O2,700,Archetype,300,14.1,13.4,14.7,5.0,38.0,1.00
+Scene::udpateSystems - Kinematics,O2,900,Object,300,7.3,6.8,8.1,5.7,62.6,0.62
+Scene::udpateSystems - Kinematics,O2,900,Archetype,300,11.8,10.6,13.3,6.0,28.4,1.00
+Scene::udpateSystems - Kinematics,O2,1100,Object,300,7.3,7.2,7.8,6.9,52.1,0.80
+Scene::udpateSystems - Kinematics,O2,1100,Archetype,300,9.2,8.4,10.1,6.4,22.4,1.00
+Scene::udpateSystems - Kinematics,O2,1300,Object,300,13.4,12.9,13.8,10.1,68.5,1.64
+Scene::udpateSystems - Kinematics,O2,1300,Archetype,300,8.1,7.7,8.8,6.2,61.1,1.00
+Scene::udpateSystems - Kinematics,O2,1500,Object,300,13.2,13.1,13.6,12.9,23.2,1.51
+Scene::udpateSystems - Kinematics,O2,1500,Archetype,300,8.7,8.4,9.4,7.0,24.4,1.00

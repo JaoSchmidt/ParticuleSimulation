@@ -7,15 +7,10 @@ PANDOC := pandoc $(FONTE) -f abnt/leitor.lua \
 	--citeproc --top-level-division=chapter --syntax-highlighting=none \
 	--pdf-engine=pdflatex
 
-$(SAIDA).pdf: $(FONTE) $(wildcard abnt/*.*) abnt/img/vtable.png
+$(SAIDA).pdf: $(FONTE) $(wildcard abnt/*.*) $(wildcard images/*.png tests/plots/*.png)
 	$(PANDOC) -o $@
 
-# images/vtable.png is a WebP with a .png name; pdfTeX needs a real PNG.
-abnt/img/vtable.png: images/vtable.png
-	mkdir -p $(@D)
-	magick webp:$< png:$@
-
-tex: abnt/img/vtable.png
+tex:
 	$(PANDOC) -s -o $(SAIDA).tex
 
 .PHONY: tex

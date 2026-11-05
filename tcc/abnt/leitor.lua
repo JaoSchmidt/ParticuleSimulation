@@ -7,8 +7,8 @@ local CITACOES = {
   ["9"] = "mertensflecs", ["10"] = "mertens2022", ["11"] = "godotnode",
 }
 
--- images/vtable.png is really a WebP, which pdfTeX cannot read; the Makefile converts it.
-local IMAGENS = { ["images/vtable.png"] = "abnt/img/vtable.png" }
+-- Images drawn smaller than the default width (fraction of that width).
+local ESCALAS = { ["images/matrix2.png"] = 0.5 }
 
 local PADRAO_CITE = "<cite>\\%[%[(%d+)%]\\%]%[%d+%]</cite>?"
 
@@ -45,25 +45,36 @@ local function legenda(bloco, rotulo)
   return resto
 end
 
+-- An image with its caption on the very next line (no blank line between them)
+-- reaches us as one paragraph: Image, SoftBreak, Emph. Returns the caption's inlines.
+local function legenda_colada(bloco)
+  local c = bloco.content
+  if #c ~= 3 or c[1].t ~= "Image" or c[2].t ~= "SoftBreak" then return nil end
+  local paragrafo = pandoc.Para({ c[3] })
+  return legenda(paragrafo, "Figure") or legenda(paragrafo, "Matrix")
+end
+
 local function fonte_de(caminho, meta)
   for prefixo, fonte in pairs(meta.fontes or {}) do
     if caminho:sub(1, #prefixo) == prefixo then
       return pandoc.utils.stringify(fonte)
     end
   end
-  return "[SOURCE TO BE CONFIRMED]"
+  return nil
 end
 
 -- ABNT: title above the figure, source below it.
 local function figura(fig, inlines, meta)
   local imagem
   pandoc.walk_block(fig, { Image = function(i) imagem = imagem or i end })
+  local fonte = fonte_de(imagem.src, meta)
+  local largura = 0.85 * (ESCALAS[imagem.src] or 1)
   return pandoc.RawBlock("latex", table.concat({
     "\\begin{figure}[htbp]",
     "\\centering",
     "\\caption{" .. latex(inlines) .. "}",
-    "\\includegraphics[width=0.85\\textwidth,height=0.6\\textheight,keepaspectratio]{" .. (IMAGENS[imagem.src] or imagem.src) .. "}",
-    "\\fonte{" .. fonte_de(imagem.src, meta) .. "}",
+    "\\includegraphics[width=" .. largura .. "\\textwidth,height=0.6\\textheight,keepaspectratio]{" .. imagem.src .. "}",
+    fonte and ("\\fonte{" .. fonte .. "}") or "",
     "\\end{figure}",
   }, "\n"))
 end
@@ -174,6 +185,8 @@ function Reader(entrada, opcoes)
       local inlines = legenda(blocos[i + 1], "Figure")
       if inlines then i = i + 1 end
       saida:insert(figura(b, inlines or pandoc.Inlines({}), meta))
+    elseif b.t == "Para" and legenda_colada(b) then
+      saida:insert(figura(b, legenda_colada(b), meta))
     elseif b.t == "Table" then
       local inlines = legenda(blocos[i + 1], "Matrix") or legenda(blocos[i + 1], "Table")
       if inlines then i = i + 1 end
