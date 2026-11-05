@@ -37,9 +37,8 @@
 #include "Assets/DeltaTime.h"
 #include "Core.h"
 #include "CoreRender/MeshComponent.h"
-#include "ECS/Components/ComponentManager.h"
+#include "Debugging/Profiling.h"
 #include "ECS/Systems.h"
-#include "Physics/Movement3dComponent.h"
 
 namespace pain
 {
@@ -56,7 +55,7 @@ namespace tcc::Systems
 namespace detail
 {
 void _implOnRender(
-    pain::RenderApi &renderer, pain::DeltaTime currentTime,
+    pain::RenderApi &renderer,
     const std::vector<reg::ChunkViewConst<
         const pain::Transform2dComponent, const pain::SpriteComponent,
         const pain::RotationComponent, const pain::MaterialComponent>>
@@ -126,10 +125,11 @@ struct AltRender2d : public pain::System<CM>, pain::IOnRender {
    * @note This method is invoked only because the system inherits from
    * IOnSystemRender.
    */
-  void onRender(pain::RenderApi &renderer, pain::DeltaTime currentTime) override
+  void onRender(pain::RenderApi &renderer, pain::DeltaTime _) override
   {
+    PROFILE_SCOPE("Scene::renderSystems - Render2d");
     detail::_implOnRender(
-        renderer, currentTime,
+        renderer,
         this->template queryConst<
             pain::Transform2dComponent, pain::SpriteComponent,
             pain::RotationComponent, pain::MaterialComponent>(),

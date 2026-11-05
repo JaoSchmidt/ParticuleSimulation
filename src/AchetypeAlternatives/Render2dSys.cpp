@@ -30,7 +30,7 @@ namespace Systems::detail
 // Render Components
 // =============================================================== //
 void _implOnRender(
-    pain::RenderApi &renderer, pain::DeltaTime currentTime,
+    pain::RenderApi &renderer,
     const std::vector<reg::ChunkViewConst<
         const pain::Transform2dComponent, const pain::SpriteComponent,
         const pain::RotationComponent, const pain::MaterialComponent>>
@@ -39,17 +39,10 @@ void _implOnRender(
         const pain::Transform2dComponent, const pain::SpriteComponent,
         const pain::MaterialComponent>> &chunksTexture)
 {
-  UNUSED(currentTime)
-  PROFILE_SCOPE("Scene::renderSystems - Render2d");
   pain::Renderer2d &renderer2d = renderer.m_renderer2d;
   {
-    PROFILE_SCOPE("Scene::renderSystems - rotation quads");
-
     for (const auto &chunk : chunksRotation) {
-      const auto *__restrict t = std::get<0>(chunk.arrays);
-      const auto *__restrict s = std::get<1>(chunk.arrays);
-      const auto *__restrict r = std::get<2>(chunk.arrays);
-      const pain::MaterialComponent *__restrict m = std::get<3>(chunk.arrays);
+      const auto [t, s, r, m] = chunk.arrays;
       for (size_t i = 0; i < chunk.count; ++i) {
         std::visit(
             [&](const auto &shape) {
@@ -76,11 +69,8 @@ void _implOnRender(
     }
   }
   {
-    PROFILE_SCOPE("Scene::renderSystems - texture quads");
     for (const auto &chunk : chunksTexture) {
-      const auto *__restrict t = std::get<0>(chunk.arrays);
-      const auto *__restrict s = std::get<1>(chunk.arrays);
-      const pain::MaterialComponent *__restrict m = std::get<2>(chunk.arrays);
+      const auto [t, s, m] = chunk.arrays;
       for (size_t i = 0; i < chunk.count; ++i) {
         std::visit(
             [&](const auto &shape) {

@@ -5,6 +5,8 @@
 #include "OrthoCamera.h"
 #include "ParticleSimulation.h"
 #include "aliasesSystems.h"
+#include "imgui.h"
+#include <algorithm>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 

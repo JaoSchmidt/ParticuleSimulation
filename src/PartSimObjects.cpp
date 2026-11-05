@@ -19,38 +19,34 @@
 ParticleSimulationObj &ParticleSimulationObj::createScriptScene(
     pain::Scene &scene, const SimulationAssets &assets, int startAsteroidCount)
 {
-  std::vector<Wall::Object> walls;
+  obj::ObjectList walls;
   walls.reserve(assets.m_walls.size());
   for (const WallSpec &wall : assets.m_walls)
     walls.emplace_back(Wall::createObject(wall.m_position, wall.m_size,
                                           *assets.m_wallMaterial));
 
-  std::vector<Asteroid::Object> asteroids;
-
   ParticleSimulationObj &script =
       pain::Scene::emplaceScript<ParticleSimulationObj>(
-          scene.getEntity(), scene, assets.m_camera, std::move(asteroids),
-          std::move(walls),
+          scene.getEntity(), scene, assets.m_camera, std::move(walls),
           std::vector<pain::Material *>(assets.m_asteroidMaterials));
   script.setAsteroidCount(startAsteroidCount);
   return script;
 }
 
 ParticleSimulationObj::ParticleSimulationObj(
-    reg::Entity entity,                       //
-    pain::Scene &scene,                       //
-    reg::Entity orthocamera,                  //
-    std::vector<Asteroid::Object> &&asteroid, //
-    std::vector<Wall::Object> &&walls,        //
+    reg::Entity entity,       //
+    pain::Scene &scene,       //
+    reg::Entity orthocamera,  //
+    obj::ObjectList &&walls,  //
     std::vector<pain::Material *> &&asteroidMaterials)
     : pain::WorldObject(entity, scene),
       ParticleSimulationBase(orthocamera, std::move(asteroidMaterials)),
       m_eventDispatcher(scene.getEventDispatcher()),
-      m_asteroids(std::move(asteroid)), m_walls(std::move(walls)) {};
+      m_objects(std::move(walls)), m_wallCount(m_objects.size()) {};
 
 void ParticleSimulationObj::setAsteroidCount(int count)
 {
-  if (count == Simulation::maxAsteroidCount * 2)
+  if (count == Simulation::maxAsteroidCount + 200)
     exit(0);
   m_asteroidCount = std::clamp(count, 0, Simulation::maxAsteroidCount);
   resetSimulation();
@@ -58,22 +54,22 @@ void ParticleSimulationObj::setAsteroidCount(int count)
 
 void ParticleSimulationObj::resetSimulation()
 {
-  m_asteroids.clear();
-  m_asteroids.reserve(static_cast<size_t>(m_asteroidCount));
+  m_objects.resize(m_wallCount);
+  m_objects.reserve(m_wallCount + static_cast<size_t>(m_asteroidCount));
   pain::RNG rng = {Simulation::asteroidSeed, 0, 0.4};
   for (int i = 0; i < m_asteroidCount; i++) {
     glm::vec2 pos{rng.gaussian<float>(), rng.gaussian<float>()};
     glm::vec2 vel{rng.gaussian<float>(), rng.gaussian<float>()};
     pain::Material &m = *m_asteroidMaterials[static_cast<size_t>(i) %
                                              m_asteroidMaterials.size()];
-    m_asteroids.emplace_back(
+    m_objects.emplace_back(
         Asteroid::createObject(m, pos, vel, Simulation::asteroidRadius));
   }
 }
 
 void ParticleSimulationObj::renderControls()
 {
-  ImGui::Text("Asteroids: %d", static_cast<int>(m_asteroids.size()));
+  ImGui::Text("Asteroids: %d", static_cast<int>(m_objects.size() - m_wallCount));
   if (ImGui::InputInt("Amount", &m_asteroidCount, 1,
                       Simulation::asteroidAmount))
     setAsteroidCount(m_asteroidCount);
@@ -104,7 +100,7 @@ void ParticleSimulationObj::onUpdate(pain::DeltaTime dt)
   } else if (m_profileFramesUntilClose > 0 &&
              --m_profileFramesUntilClose == 0) {
     PROFILE_CLOSE();
-    resetWithDoubleAsteroids(*this);
+    resetWithPlus200Asteroids(*this);
     m_profileFramesUntilStart = SimulationProfiling::profileStartDelayFrames;
   }
 #endif
@@ -113,9 +109,9 @@ void ParticleSimulationObj::onUpdate(pain::DeltaTime dt)
   // The order matters, so it is reproduced here: collisions are resolved
   // against the positions left over by the previous frame, and only then is
   // the new position integrated.
-  obj::Systems::NaiveCollision::onUpdate(m_asteroids, m_walls,
+  obj::Systems::NaiveCollision::onUpdate(m_objects, m_wallCount,
                                          m_eventDispatcher);
-  obj::Systems::Kinematics::onUpdate(m_asteroids, dt);
+  obj::Systems::Kinematics::onUpdate(m_objects, dt);
 }
 
 // ======================================================================= //
@@ -125,5 +121,5 @@ void ParticleSimulationObj::onRender(pain::RenderApi &rs,
                                      pain::DeltaTime currentTime)
 {
   UNUSED(currentTime)
-  obj::Systems::Render2d::onRender(rs, m_asteroids, m_walls);
+  obj::Systems::Render2d::onRender(rs, m_objects);
 }

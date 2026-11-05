@@ -8,31 +8,28 @@
  * @file KinematicsSys.h
  * @brief Plain-object equivalent of the ECS kinematics system.
  *
- * The plain-object simulation stores everything an asteroid needs inline in
- * Asteroid::Object, so integration is a single indexed loop instead of a
- * registry query. The math and the order relative to the collision pass are
- * kept identical to the ECS branch for direct comparison.
+ * Each object integrates itself through obj::IObject, instead of a system
+ * querying a registry. The math and the order relative to the collision pass
+ * are kept identical to the ECS version for direct comparison.
  */
 
 #pragma once
 
-#include "Asteroid.h"
+#include "ObjectAlternatives/IObject.h"
 #include <pain.h>
-#include <vector>
 
 namespace obj::Systems
 {
 
-/** @brief Kinematic integration for plain-object asteroids. */
+/** @brief Kinematic integration for plain objects. */
 struct Kinematics {
   /**
-   * @brief Integrates every asteroid position with its velocity.
+   * @brief Updates the rotation and position of every object.
    *
-   * @param asteroids Asteroids to move.
+   * @param objects   All objects. The ones that don't move ignore the calls.
    * @param deltaTime Frame delta time.
    */
-  static void onUpdate(std::vector<Asteroid::Object> &asteroids,
-                       pain::DeltaTime deltaTime);
+  static void onUpdate(ObjectList &objects, pain::DeltaTime deltaTime);
 };
 
 } // namespace obj::Systems

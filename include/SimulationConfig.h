@@ -40,7 +40,9 @@ inline constexpr float asteroidRadius = 0.1f;
 inline constexpr unsigned asteroidAmount = 100;
 /// Upper bound of the amount slider. Collision is O(n^2) here, so this is
 /// deliberately modest.
-inline constexpr int maxAsteroidCount = 2000;
+inline constexpr int maxAsteroidCount = 1500;
+/// How many asteroids each profiling round and each arrow key press adds.
+inline constexpr int asteroidCountStep = 200;
 
 // Big entity simulation (main-big-entity.cpp) --------------------------------
 inline constexpr int bigEntityStartCount = 1024;

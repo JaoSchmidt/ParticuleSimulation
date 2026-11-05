@@ -8,20 +8,15 @@
  * @file CollisionNaiveSys.h
  * @brief Plain-object equivalent of the ECS naive collision system.
  *
- * The plain-object simulation keeps position, velocity and collider state
- * inside Asteroid::Object and Wall::Object. To match the sparse set version,
- * each update still flattens both inputs into temporary handle vectors before
- * the indexed pair passes, even though the object vectors are already flat.
+ * Position, velocity and collider state are read through obj::IObject.
  * Detection, reaction and the order of the moving and static passes mirror the
- * sparse set branch.
+ * ECS version.
  */
 
 #pragma once
 
-#include "Asteroid.h"
-#include "Wall.h"
+#include "ObjectAlternatives/IObject.h"
 #include <pain.h>
-#include <vector>
 
 namespace obj::Systems
 {
@@ -29,14 +24,13 @@ namespace obj::Systems
 /** @brief Brute-force collision detection and response for plain objects. */
 struct NaiveCollision {
   /**
-   * @brief Resolves asteroid-vs-asteroid and asteroid-vs-wall collisions.
+   * @brief Resolves movable-vs-movable and movable-vs-static collisions.
    *
-   * @param asteroids       Movable objects, updated in place.
-   * @param walls           Static objects, read only.
+   * @param objects         All objects, the static ones first.
+   * @param staticCount     How many objects at the front of the list are static.
    * @param eventDispatcher Dispatcher used for trigger collision events.
    */
-  static void onUpdate(std::vector<Asteroid::Object> &asteroids,
-                       const std::vector<Wall::Object> &walls,
+  static void onUpdate(ObjectList &objects, size_t staticCount,
                        reg::EventDispatcher &eventDispatcher);
 };
 

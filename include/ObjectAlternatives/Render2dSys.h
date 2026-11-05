@@ -8,34 +8,27 @@
  * @file Render2dSys.h
  * @brief Plain-object equivalent of the ECS 2D rendering system.
  *
- * The plain-object simulation keeps its drawable data in Asteroid::Object and
- * Wall::Object, so this system submits those vectors directly instead of
- * querying the render archetypes. Shape dispatch, rotation handling and
- * submission order mirror the ECS branch.
+ * Each object submits its own draw call through obj::IObject, instead of a
+ * system querying the render archetypes.
  */
 
 #pragma once
 
-#include "Asteroid.h"
-#include "Wall.h"
+#include "ObjectAlternatives/IObject.h"
 #include <pain.h>
-#include <vector>
 
 namespace obj::Systems
 {
 
-/** @brief Submits plain-object asteroids and walls to the 2D renderer. */
+/** @brief Submits plain objects to the 2D renderer. */
 struct Render2d {
   /**
-   * @brief Emits the draw calls for every plain-object entity.
+   * @brief Emits the draw calls for every object.
    *
    * @param renderApi Active render API.
-   * @param asteroids Rotated asteroid objects.
-   * @param walls     Non-rotated wall objects.
+   * @param objects   All objects.
    */
-  static void onRender(pain::RenderApi &renderApi,
-                       const std::vector<Asteroid::Object> &asteroids,
-                       const std::vector<Wall::Object> &walls);
+  static void onRender(pain::RenderApi &renderApi, const ObjectList &objects);
 };
 
 } // namespace obj::Systems

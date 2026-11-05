@@ -45,12 +45,35 @@ public:
   virtual int asteroidCount() const = 0;
   /// @brief Draws the controls that drive this flavour.
   virtual void renderControls() = 0;
-
-  /// @brief Resets the simulation with twice the asteroids for the next
-  ///        profiling round.
-  static void resetWithDoubleAsteroids(ParticleSimulationBase &simulation)
+  void onEvent(const SDL_Event &event)
   {
-    simulation.setAsteroidCount(simulation.asteroidCount() * 2);
+    if (event.type != SDL_KEYDOWN || event.key.repeat != 0 ||
+        ImGui::GetIO().WantTextInput)
+      return;
+
+    int step = 0;
+    if (event.key.keysym.sym == SDLK_UP)
+      step = Simulation::asteroidCountStep;
+    else if (event.key.keysym.sym == SDLK_DOWN)
+      step = -Simulation::asteroidCountStep;
+    else
+      return;
+
+    const int current = asteroidCount();
+    const int next =
+        std::clamp(current + step, 0, Simulation::maxAsteroidCount);
+    if (next != current) {
+      PLOG_I("Asteroid count = {}", next);
+      setAsteroidCount(next);
+    }
+  }
+
+  /// @brief Resets the simulation with 200 more asteroids for the next
+  ///        profiling round.
+  static void resetWithPlus200Asteroids(ParticleSimulationBase &simulation)
+  {
+    simulation.setAsteroidCount(simulation.asteroidCount() +
+                                Simulation::asteroidCountStep);
   }
 
   std::vector<std::vector<int>> m_backgroundMap;
@@ -75,9 +98,7 @@ public:
   createScriptScene(pain::Scene &scene, const SimulationAssets &assets,
                     int startAsteroidCount);
   ParticleSimulationObj(reg::Entity entity, pain::Scene &scene,
-                        reg::Entity orthocamera,
-                        std::vector<Asteroid::Object> &&asteroid,
-                        std::vector<Wall::Object> &&walls,
+                        reg::Entity orthocamera, obj::ObjectList &&walls,
                         std::vector<pain::Material *> &&asteroidMaterials);
 
   void onUpdate(pain::DeltaTime dt);
@@ -88,8 +109,9 @@ public:
   int asteroidCount() const override { return m_asteroidCount; }
   void renderControls() override;
   reg::EventDispatcher &m_eventDispatcher;
-  std::vector<Asteroid::Object> m_asteroids;
-  std::vector<Wall::Object> m_walls;
+  /// The walls first, so changing the asteroid count only touches the back.
+  obj::ObjectList m_objects;
+  size_t m_wallCount;
   /// 0: not waiting, >0: frames until profiling opens.
   int m_profileFramesUntilStart = 0;
   /// 0: not profiling, >0: frames until profiling closes.

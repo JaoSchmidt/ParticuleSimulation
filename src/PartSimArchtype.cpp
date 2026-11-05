@@ -49,7 +49,7 @@ ParticleSimulationArchetype::ParticleSimulationArchetype(
 
 void ParticleSimulationArchetype::setAsteroidCount(int count)
 {
-  if (count == Simulation::maxAsteroidCount * 2)
+  if (count == Simulation::maxAsteroidCount + 200)
     exit(0);
   m_asteroidCount = std::clamp(count, 0, Simulation::maxAsteroidCount);
   resetSimulation();
@@ -117,7 +117,7 @@ void ParticleSimulationArchetype::onUpdate(pain::DeltaTime dt)
   } else if (m_profileFramesUntilClose > 0 &&
              --m_profileFramesUntilClose == 0) {
     PROFILE_CLOSE();
-    resetWithDoubleAsteroids(*this);
+    resetWithPlus200Asteroids(*this);
     m_profileFramesUntilStart = SimulationProfiling::profileStartDelayFrames;
   }
 #endif
