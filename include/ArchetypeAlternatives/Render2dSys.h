@@ -125,7 +125,7 @@ struct AltRender2d : public pain::System<CM>, pain::IOnRender {
    * @note This method is invoked only because the system inherits from
    * IOnSystemRender.
    */
-  void onRender(pain::RenderApi &renderer, pain::DeltaTime _) override
+  void onRender(pain::RenderApi &renderer, pain::DeltaTime /*currentTime*/) override
   {
     PROFILE_SCOPE("Scene::renderSystems - Render2d");
     detail::_implOnRender(

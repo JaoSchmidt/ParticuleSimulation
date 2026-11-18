@@ -357,7 +357,7 @@ pain::Application *pain::createApplication()
 }
 
 #ifdef PLATFORM_IS_LINUX
-int main(int argc, char *argv[])
+int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 #elif defined PLATFORM_IS_WINDOWS
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
                    int nCmdShow)

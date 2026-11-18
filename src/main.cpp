@@ -150,7 +150,7 @@ pain::Application *pain::createApplication()
   // (Optional) Creating the ECS UI scene
   UIScene &uiScene = app->createUIScene();
   // (Optional) A small native script that works as our game engine editor
-  painless::Editor &editor = painless::Editor::create(uiScene, *app);
+  [[maybe_unused]] painless::Editor &editor = painless::Editor::create(uiScene, *app);
 
   // (Optional) Define a small native script for the world scene
   // that will be executed on as root script. Must have added
@@ -159,7 +159,7 @@ pain::Application *pain::createApplication()
 }
 
 #ifdef PLATFORM_IS_LINUX
-int main(int argc, char *argv[])
+int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 #elif defined PLATFORM_IS_WINDOWS
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
                    int nCmdShow)

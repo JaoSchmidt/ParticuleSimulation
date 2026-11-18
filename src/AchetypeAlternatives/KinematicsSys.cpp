@@ -20,7 +20,7 @@ void _implOnUpdate(
     std::vector<
         reg::ChunkView<pain::Transform2dComponent, pain::Movement2dComponent>>
         chunksMovement2d,
-    std::vector<
+    [[maybe_unused]] std::vector<
         reg::ChunkView<pain::Transform3dComponent, pain::Movement3dComponent>>
         chunksMovement3d)
 {
