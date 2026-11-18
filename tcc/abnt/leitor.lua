@@ -3,8 +3,10 @@
 
 local CITACOES = {
   ["1"] = "bryant2011", ["2"] = "caini2024entt", ["3"] = "romeo2024ecst",
-  ["6"] = "driesen1996", ["7"] = "linietsky2021", ["8"] = "caini2019",
+  ["4"] = "gregory2018", ["5"] = "unityentities", ["6"] = "driesen1996", ["7"] = "linietsky2021", ["8"] = "caini2019",
   ["9"] = "mertensflecs", ["10"] = "mertens2022", ["11"] = "godotnode",
+  ["12"] = "entitysystemswiki", ["13"] = "wikipediaecs", ["14"] = "romeo2016",
+  ["15"] = "bryant2011cap6",
 }
 
 -- Images drawn smaller than the default width (fraction of that width).
@@ -24,6 +26,11 @@ local function converter_citacoes(texto)
   texto = texto:gsub("%s*" .. PADRAO_CITE, function(n)
     return " [@" .. chave(n) .. "]"
   end)
+  -- Adjacent citations => one ABNT group: [@a] [@b] => [@a; @b]
+  repeat
+    local n
+    texto, n = texto:gsub("(%[@[%w_]+)%]%s*%[@", "%1; @")
+  until n == 0
   return texto
 end
 
@@ -63,7 +70,17 @@ local function fonte_de(caminho, meta)
   return nil
 end
 
--- ABNT: title above the figure, source below it.
+-- Caption below the figure (author's choice), then the source.
+-- Figure labels for @fig:... references: {#fig:name} on an image or a code block.
+local ROTULOS = {}
+local function rotulo(id)
+  if not id or id == "" then return "" end
+  if not id:match("^fig:") then error("figure label must start with fig: (got #" .. id .. ")") end
+  if ROTULOS[id] then error("figure label #" .. id .. " is used twice") end
+  ROTULOS[id] = true
+  return "\\label{" .. id .. "}"
+end
+
 local function figura(fig, inlines, meta)
   local imagem
   pandoc.walk_block(fig, { Image = function(i) imagem = imagem or i end })
@@ -72,18 +89,26 @@ local function figura(fig, inlines, meta)
   return pandoc.RawBlock("latex", table.concat({
     "\\begin{figure}[htbp]",
     "\\centering",
-    "\\caption{" .. latex(inlines) .. "}",
     "\\includegraphics[width=" .. largura .. "\\textwidth,height=0.6\\textheight,keepaspectratio]{" .. imagem.src .. "}",
+    "\\caption{" .. latex(inlines) .. "}" .. rotulo(fig.identifier ~= "" and fig.identifier or imagem.identifier),
     fonte and ("\\fonte{" .. fonte .. "}") or "",
     "\\end{figure}",
   }, "\n"))
 end
 
 -- Code in listings because plain verbatim cannot wrap the long pseudocode lines.
-local function codigo(bloco)
+-- With a "_Figure N: ..._" caption after it, the code becomes a figure: caption
+-- below, kept in place (not floating) and listed in the List of Figures.
+local function codigo(bloco, inlines)
   local opcoes = bloco.classes:includes("cpp") and "[language=C++]" or ""
-  return pandoc.RawBlock("latex",
-    "\\begin{lstlisting}" .. opcoes .. "\n" .. bloco.text .. "\n\\end{lstlisting}")
+  local lst = "\\begin{lstlisting}" .. opcoes .. "\n" .. bloco.text .. "\n\\end{lstlisting}"
+  if not inlines then return pandoc.RawBlock("latex", lst) end
+  return pandoc.RawBlock("latex", table.concat({
+    "\\par\\medskip\\noindent\\begin{minipage}{\\linewidth}",
+    lst,
+    "\\figcaption{" .. latex(inlines) .. "}" .. rotulo(bloco.identifier),
+    "\\end{minipage}\\par\\medskip",
+  }, "\n"))
 end
 
 local function tabela(tab, inlines)
@@ -119,10 +144,8 @@ local function titulo(h, vistos, meta, saida)
     h.level = 2
     local cap = num:match("^%d+")
     if not vistos[cap] then
-      vistos[cap] = true
-      local nome = (meta.capitulos or {})[cap]
-      if not nome then error("no title for chapter " .. cap .. " in metadados.yaml") end
-      saida:insert(pandoc.Header(1, pandoc.utils.stringify(nome)))
+      error("section " .. num .. " has no chapter heading above it: add \"## " .. cap
+        .. ". <title>\" to the .md before it")
     end
   else
     num = nil
@@ -137,6 +160,52 @@ local function titulo(h, vistos, meta, saida)
   end
   h.content = conteudo
   saida:insert(h)
+end
+
+-- "## Glossary" (after the handwritten references) holds a definition list whose
+-- terms carry a label: [vTable]{#gls:vtable}. It is printed after the reference
+-- list, sorted alphabetically; @gls:vtable in the text links to the entry.
+local GLOSSARIO = {}
+
+local function latex_blocos(blocos)
+  local saida = pandoc.write(pandoc.Pandoc(blocos), "latex")
+  return (saida:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function glossario(corpo)
+  local itens = {}
+  for _, b in ipairs(corpo) do
+    if b.t ~= "DefinitionList" then
+      error("## Glossary must contain only a definition list (term, then ': definition')")
+    end
+    for _, item in ipairs(b.content) do
+      local termo, defs = item[1], item[2]
+      local id, conteudo
+      for _, x in ipairs(termo) do
+        if x.t == "Span" and x.identifier:match("^gls:") then id, conteudo = x.identifier, x.content end
+      end
+      if not id then
+        error("glossary term '" .. pandoc.utils.stringify(termo) .. "' has no {#gls:...} label")
+      end
+      if GLOSSARIO[id] then error("glossary label #" .. id .. " is used twice") end
+      GLOSSARIO[id] = conteudo
+      local def = pandoc.Blocks({})
+      for _, d in ipairs(defs) do def:extend(d) end
+      itens[#itens + 1] = { chave = pandoc.utils.stringify(conteudo):lower(), id = id,
+                            termo = conteudo, def = def }
+    end
+  end
+  table.sort(itens, function(a, b) return a.chave < b.chave end)
+  local linhas = { "\\begin{description}" }
+  for _, it in ipairs(itens) do
+    linhas[#linhas + 1] = "\\item[{\\phantomsection\\label{" .. it.id .. "}" .. latex(it.termo)
+      .. ":}] " .. latex_blocos(it.def)
+  end
+  linhas[#linhas + 1] = "\\end{description}"
+  return {
+    pandoc.Header(1, "Glossary", { class = "unnumbered" }),
+    pandoc.RawBlock("latex", table.concat(linhas, "\n")),
+  }
 end
 
 local function ler_metadados()
@@ -154,21 +223,30 @@ function Reader(entrada, opcoes)
 
   local blocos = doc.blocks
   local saida = pandoc.Blocks({})
-  local resumo = pandoc.Blocks({})
   local vistos = {}
   local i = 1
 
-  -- Draft banner, title and author lines: the template builds these from metadata.
+  -- Everything before the first numbered heading is front matter. "Resumo" and
+  -- "Abstract" go to the template's own pages; the draft banner, title and
+  -- author lines are dropped, since the template builds those from metadata.
+  local FRENTE = { Resumo = "resumo", Abstract = "abstract" }
+  local secoes, atual = {}, nil
   while blocos[i] and not (blocos[i].t == "Header"
-      and pandoc.utils.stringify(blocos[i]) == "Abstract") do
+      and pandoc.utils.stringify(blocos[i]):match("^%d")) do
+    local b = blocos[i]
+    if b.t == "Header" then
+      atual = FRENTE[pandoc.utils.stringify(b)]
+      if atual then secoes[atual] = pandoc.Blocks({}) end
+    elseif atual then
+      secoes[atual]:insert(b)
+    end
     i = i + 1
   end
-  i = i + 1
-  while blocos[i] and blocos[i].t ~= "Header" do
-    resumo:insert(blocos[i])
-    i = i + 1
+  for chave_meta in pairs(FRENTE) do
+    local campo = FRENTE[chave_meta]
+    if not secoes[campo] then error("missing \"## " .. chave_meta .. "\" section in the .md") end
+    doc.meta[campo] = pandoc.MetaBlocks(secoes[campo])
   end
-  doc.meta.abstract = pandoc.MetaBlocks(resumo)
 
   while blocos[i] do
     local b = blocos[i]
@@ -178,7 +256,23 @@ function Reader(entrada, opcoes)
       saida:insert(pandoc.RawBlock("latex", "\\begingroup\\SingleSpacing\\raggedright"))
       saida:insert(pandoc.Div({}, { id = "refs" }))
       saida:insert(pandoc.RawBlock("latex", "\\endgroup"))
-      break -- the handwritten list is replaced by the citeproc one
+      -- The handwritten list is replaced by the citeproc one; only the glossary
+      -- after it is kept.
+      local g = i + 1
+      while blocos[g] and not (blocos[g].t == "Header"
+          and pandoc.utils.stringify(blocos[g]) == "Glossary") do
+        g = g + 1
+      end
+      if blocos[g] then
+        local corpo = pandoc.Blocks({})
+        g = g + 1
+        while blocos[g] and blocos[g].t ~= "Header" do
+          corpo:insert(blocos[g])
+          g = g + 1
+        end
+        saida:extend(glossario(corpo))
+      end
+      break
     elseif b.t == "Header" then
       titulo(b, vistos, meta, saida)
     elseif b.t == "Figure" then
@@ -192,12 +286,33 @@ function Reader(entrada, opcoes)
       if inlines then i = i + 1 end
       saida:extend(tabela(b, inlines))
     elseif b.t == "CodeBlock" then
-      saida:insert(codigo(b))
+      local inlines = legenda(blocos[i + 1], "Figure")
+      if inlines then i = i + 1 end
+      saida:insert(codigo(b, inlines))
     else
       saida:insert(b)
     end
     i = i + 1
   end
+
+  -- @fig:name in the text => "Figure N", linked to the figure. Pandoc reads it as a
+  -- citation, so it is replaced here, before citeproc sees it.
+  saida = saida:walk({ Cite = function(c)
+    local id = c.citations[1].id
+    if id:match("^gls:") then
+      if #c.citations > 1 then error("@" .. id .. ": cite one glossary term at a time") end
+      if not GLOSSARIO[id] then error("@" .. id .. " points to no glossary term with {#" .. id .. "}") end
+      return pandoc.RawInline("latex", "\\hyperref[" .. id .. "]{" .. latex(GLOSSARIO[id]) .. "}")
+    end
+    if not id:match("^fig:") then return nil end
+    if #c.citations > 1 then error("@" .. id .. ": cite one figure at a time") end
+    if not ROTULOS[id] then error("@" .. id .. " points to no figure with {#" .. id .. "}") end
+    return pandoc.RawInline("latex", "\\hyperref[" .. id .. "]{\\figurename~\\ref*{" .. id .. "}}")
+  end, Link = function(l)
+    -- [text](#gls:name) links to a glossary term with different wording (plural, case).
+    local id = l.target:match("^#(gls:.*)")
+    if id and not GLOSSARIO[id] then error("link to #" .. id .. ": no glossary term has that label") end
+  end })
 
   doc.blocks = saida
   return doc

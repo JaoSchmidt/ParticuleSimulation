@@ -34,6 +34,8 @@
   aboveskip=10pt, belowskip=10pt,
   showstringspaces=false, keywordstyle=\bfseries,
 }
+% Non-floating figure caption, so code figures stay where they are in the text
+\newfixedcaption{\figcaption}{figure}
 
 % Citeproc reference list
 \NewDocumentCommand\citeproctext{}{}
