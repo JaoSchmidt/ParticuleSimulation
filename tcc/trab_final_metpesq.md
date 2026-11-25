@@ -52,7 +52,7 @@ Next, an implementation of ECS, the [Registry](#gls:registry), and the Scene wil
 
 Finally, performance benchmarks and tests will be conducted to evaluate the efficiency and scalability of the ECS in handling big scenes, and some examples of its interaction with other engine systems will be shown.
 
-## 2. Important Theoretical Frameworks
+## 2. Related Works
 
 Computer Systems: A Programmer’s Perspective by Randal Bryant is sometimes called "The Computer Science Book" by some colleagues of the author. This reference is key for understanding the lower-level assembly aspects of coding, which are critical when building high-performance and clean software. It covers topics like memory management, CPU architecture, instructions, unexpected behaviors and efficient code execution, all of which are relevant to optimizing queries inside ECS systems and their data structures <cite>\[[1]\][1]</cite>.
 
@@ -1037,7 +1037,29 @@ _Figure 51: Particle Simulation, Render2d time per frame_
 
 ### 5.6 Conclusion
 
-While game engines are never truly “finished,” the goal is to push the boundaries of what most general-purpose engines achieve within the defined scope of this project. By iterating on each of these tests and striving to exceed or match the benchmarks of existing engines, this work aims to demonstrate the robustness and performance of ECS. These efforts will also provide a foundation for future comparisons, like the Sparse-Set Registry.
+This work compared an object-oriented layout with an archetype ECS registry, both implemented in the same engine and measured with the same systems. The main result is that the advantage of the archetype layout grows with the share of each entity that a system does not read:
+
+- In the Big Entities Scene, reading one component (`readHot`) was 2.08 to 2.80 times faster with archetypes at every entity count, while reading all four components (`readAll`) was only 1.09 to 1.19 times faster, apart from one outlier.
+- In the Memory Size Test, both layouts took the same time with one struct per entity (2699 us). With 12 structs, the archetype version was 3.12 times faster on `readHot` (1652 us against 5155 us), since the bytes read stayed constant while the Object version had to skip more and more unused data. `readAll` only favored archetypes from 5 structs on (1.13 to 1.51 times faster).
+- In the Particle Simulation, a realistic scene with small entities whose systems read most of their data, the layout made no meaningful difference. The naive O(n²) collision detection dominated the frame, passing the 16.67 ms budget of a 60 Hz frame at 2000 asteroids.
+
+In other words, ECS is not a free speedup. It pays off when entities are large and systems only touch part of them, which tends to happen as a game adds more components to its objects. When the bottleneck is an algorithm, as with collision here, memory layout compensates little.
+
+#### Future work: Sparse-Set Registry
+
+The natural next step is to implement a [Sparse-Set](#gls:sparseset) registry, the design used by EnTT <cite>\[[2]\][2]</cite><cite>\[[8]\][8]</cite>, and add it as a third version to the same tests. Instead of grouping entities by their exact set of components, a sparse set keeps one densely packed array per component type, plus a sparse array that maps each entity ID to its position in the dense array.
+
+Its trade-off is the opposite of the archetype's. Adding or removing a component from an existing entity only touches that component's set, while an archetype registry must move the entity, with all its components, to another archetype. Meaning that insertions, removals and updates of specific components should be faster. On the other hand, a query over several components must iterate one set and use the index to grab the other components, meaning we have an extra step to check and retrieve the component value before using it.
+
+Running both registries through the Big Entities, Memory Size and Particle Simulation tests, plus a new test that adds and removes components every frame, would show which workloads favor each design.
+
+#### Future work: Parallel Systems
+
+Every system in this work runs as a single-threaded loop: a query returns the component arrays of each matching archetype, and one thread iterates over all of them in sequence. However, the archetype registry already splits the data into independent blocks. Each archetype is a separate matrix, and its arrays can be further broken into fixed-size chunks of entities.
+
+Since a system applies the same function to every entity, and the entities of one chunk do not share data with the entities of another, each chunk could be handed to a separate thread instead of being shoved into the same `for` loop. For example, `applyVelocity` over 100000 entities could be split into chunks of a few thousand entities, distributed among the CPU cores, and synchronized only once at the end of the system. This is the restriction described in the problem section: ECS guarantees that data inside a single system is unrelated, which allows easy concurrency <cite>\[[8]\][8]</cite>. ECST already explores this idea in a compile-time library <cite>\[[14]\][14]</cite>.
+
+A system like collision detection reads the components of two entities, possibly from other chunks, so it must read from a state that no other thread is modifying, for example by writing results into a separate buffer that is applied after the system ends, or by creating a custom query function that returns non-repeating combinations.
 
 ## References
 
